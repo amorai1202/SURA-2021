@@ -1,0 +1,3027 @@
+---
+title: "SURA Final Report"
+author: "Amor Ai, Breana Valentovish, Xavier Xia, Xiaohan Liu"
+date: "7/02/2021"
+output: 
+  pdf_document:
+    toc: yes
+  bookdown::html_document2:
+  word_document:
+    toc: yes
+  html_document:
+    code_folding: show
+    theme: cosmo
+    toc: yes
+    toc_float: yes
+optin: TRUE
+---
+
+```{r setup, message=FALSE, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+library(magrittr)
+library(tidyverse)
+library(RColorBrewer)
+library(SnowballC)
+library(hunspell)
+library(stopwords)
+library(tidytext)
+library(ggpubr)
+library(wordcloud2)
+library(bookdown)
+library(rpart)
+library(rpart.plot)
+
+
+```
+
+```{r read_data,  message = FALSE}
+# research <- read_csv("datasets/datadiscovery_researchers.csv")
+# support <- read_csv("datasets/datadiscovery_supportprof.csv")
+
+research <- read_csv("datadiscovery_researchers.csv")
+support <- read_csv("datadiscovery_supportprof.csv")
+
+research <- research %>%
+  mutate(dem_exprnce = replace(dem_exprnce, dem_exprnce == '15-Jun', '6-15'))
+
+```
+
+# Research Problem
+
+There are many challenges that prevent existing data from being found and reused. Hence, understanding how researchers and support professionals discover and use data may facilitate future data reuse. Additionally, analyzing the factors limiting researchers’ ability to reuse data can help research support professionals better understand how to assist researchers looking for data.
+
+# Introduction 
+
+The data from our project was generated from a globally distributed survey. The goal of the survey was to investigate the habits of reusing and sharing at a larger scale. The data set contains 1677 responses from 105 countries and 31 unique disciplines. 
+
+The data that was collected consisted of only categorical variables. Additionally, there were multiple questions in the survey that included an open-ended response. 
+
+The types of analyses we carried out included bar charts, histograms, pie charts, classification trees, word clouds, etc.  
+
+The remainder of this report is structured as follows: 
+
+•	In Section 1, we will examine and present visuals on the support data set. It will cover the basic EDA on the most important variables. 
+
+•	In Section 2, we will cover the researchers data set. 
+
+•	The final section, Section 3, will show and explain all analyses that were done comparing the 2 data sets. (Support vs Researchers)
+
+Some major findings we discovered were that individuals would rather encourage data sharing over data reuse, there is a greater percentage of respondents who indicated they discouraged data sharing from the Middle East and Africa compared to all other regions, and data is used most as basis for new study. 
+
+
+**Citation for the data:** 
+
+Gregory.(2020). Data discovery and reuse practices of researchers and research support professionals.[Data set]. DANS-EASY. DOI.
+
+**Citation for the additional publication that used the data: **
+
+Gregory, K., Groth, P., Scharnhorst, A., & Wyatt, S. (2019). Lost or found? Discovering data needed for research. arXiv preprint arXiv:1909.00464.
+
+
+## General Overview of Researchers and Support Dataset 
+
+```{r overview, include=FALSE}
+
+#dimensions
+dim(research) # 1630 rows, 165 columns
+dim(support) # 47 rows, 167 columns
+
+all(!duplicated(research$responseid)) #all respondents are unique
+all(!duplicated(support$responseid)) #all respondents are unique
+
+r_column_groups <- names(research) %>%
+  str_extract("[a-z]+(?=_)") %>% 
+  unique
+
+s_column_groups <- names(support) %>%
+  str_extract("[a-z]+(?=_)") %>% 
+  unique
+
+r_column_groups # research column categories
+s_column_groups # support column categories
+
+```
+
+The data contains 1677 total responses, 105 countries, 31 disciplines
+
+The support dataset contained 47 respondents with 167 variables. Respondents include librarians, archivists, and research/data suport providers. The researchers dataset contained 1630 respondents with 165 variables. Respondents include researchers, students, managers, and "other" in which individuals indicated in the open response portion what role they identify with. Open response answers included professors, engineers, educators, physicans etc.. 
+
+It should be noted that the support dataset has a relatively small sample size, so any conclusions or takeaways should be taken into account with the size of the data.
+
+
+# Analysis of Research and Support Datasets 
+
+## SECTION 1: Support
+
+```{r combine}
+
+disc_df <- support %>% 
+  dplyr::select(c("responseid", "find_litdat", "dem_exprnce", "dem_country", "disc_agricul", "disc_artshuman","disc_astronom","disc_biochem","disc_biological","disc_busin", "disc_chemeng", "disc_chem", "disc_compsci", "disc_decisionsci", "disc_earthplanet", "disc_econ", "disc_energy", "disc_engtech", "disc_environ", "disc_healthprof", "disc_immun", "disc_matlsci", "disc_math", "disc_med", "disc_multi", "disc_neuro", "disc_nurs", "disc_pharma", "disc_physics", "disc_psych", "disc_socsci", "disc_infosci", "disc_other", "use_nwstdy", "use_tch", "use_nwprj", "use_cmprsn", "need_obs","need_exp","need_sim","need_deriv", "find_netwk", "find_creatr", "find_collab", "find_conf", "find_list")) %>% 
+  pivot_longer(cols = c("need_obs","need_exp","need_sim","need_deriv"), names_to = "need_var",  values_to = "need_values") %>% 
+  pivot_longer(cols = c("use_nwstdy", "use_tch", "use_nwprj", "use_cmprsn"), names_to = "use_var",  values_to = "use_values") %>%
+  pivot_longer(cols = c("disc_agricul", "disc_artshuman","disc_astronom","disc_biochem","disc_biological","disc_busin", "disc_chemeng", "disc_chem", "disc_compsci", "disc_decisionsci", "disc_earthplanet", "disc_econ", "disc_energy", "disc_engtech", "disc_environ", "disc_healthprof", "disc_immun", "disc_matlsci", "disc_math", "disc_med", "disc_multi", "disc_neuro", "disc_nurs", "disc_pharma", "disc_physics", "disc_psych", "disc_socsci", "disc_infosci", "disc_other"), names_to = "variable",  values_to = "value") %>%
+  pivot_longer(cols = c("find_netwk", "find_creatr", "find_collab", "find_conf", "find_list"), names_to = "find_var",  values_to = "find_values")
+
+#deleted disc_dentist and disc_vet b/c 0
+
+
+disc_data_filtered <- dplyr::filter(disc_df, value != 0, use_values != 0, need_values != 0, find_values !=0) 
+
+```
+
+The support dataset comprises of respondents whose roles include: Librarian, archivist, and research/data support provider. 
+
+We begin with general overview of the respondents, then progress into more specific analysis of the variables and significant testing where relevant.  
+
+### Who do the respondents support? (L4) 
+
+The following shows the the count of the people whom the respondents support:
+
+```{r who_support, fig.cap= "The majority of respondents either support researchers or students."}
+
+# whosupprt_stud;L4: Who support: students
+# whosupprt_res;L4: Who support: researchers
+# whosupprt_indus;L4: Who support: industry employees
+# whosupprt_oth;L4: Who support: other 
+# whosupprt_othresp;L4: Who support: open response for other 
+
+## Who support columns
+
+who_supprt <- dplyr::select(support, whosupprt_stud:whosupprt_othresp)
+
+#Number of observations in each column
+knitr::kable(colSums(who_supprt != "0")) #without 0s 
+
+#Summary
+
+combined_who <- who_supprt %>% 
+  pivot_longer(cols = c("whosupprt_stud","whosupprt_res","whosupprt_indus","whosupprt_oth","whosupprt_othresp"), names_to = "variable",  values_to = "value")
+
+
+whosupprt_df <- dplyr::filter(combined_who, value != 0) 
+
+##Distribution
+
+ggplot(data=whosupprt_df, aes(x=reorder(variable, variable, function(x)-length(x)))) +
+  labs(y= "count", x = "who support", title = "Distribution of people who the respondents support") +
+  geom_bar(fill= "#238A8DFF") 
+
+```
+
+### Respondent demographics (experience, discipline, country/geographical region)
+
+The following analyses will examine the demographics of respondents from the support dataset (experience & discipline & country).
+
+#### Years of experience (D2) 
+```{r exp, fig.cap = "Almost half of the respondents in the support dataset have 6-15 years of experience. It should be noted that there are only 3 respondents with 31+ years of experience in this dataset."}
+
+#Distribution of experience
+
+support$dem_exprnce <- factor(support$dem_exprnce, levels = c("0-5", "6-15", "16-30", "31+"), ordered = TRUE)
+
+ggplot(data = support, aes(x= dem_exprnce)) +
+  labs(y= "count", x = "years of experience", title = "Distribution of respondents' years of experience") +
+  geom_bar(mapping = aes(x = dem_exprnce, fill = dem_exprnce))
+
+```
+
+#### Discipline of specilization (D1) 
+
+```{r disc_support, fig.cap = "Based on the support dataset, the most common disciplines are part of natural and applied sciences, such as information science, environmental sciences, and social science. This may be because new research data within the science field may not be as readily available compared to other disciplines."}
+
+#Distribution of disciplines
+
+ggplot(data=disc_data_filtered, aes(x=reorder(value, value, function(x) length(x)))) +
+  labs(y= "count", x = "disciplines", title = "Distribution of discipline chosen by the respondents") +
+  geom_bar(fill= "#238A8DFF")+ coord_flip()
+
+#Grouped disciplines
+
+disc_data_filtered$subset <- ifelse(disc_data_filtered$variable == "disc_agricul" |
+disc_data_filtered$variable =="disc_artshuman" |disc_data_filtered$variable =="disc_astronom", "Humanities",
+ifelse(disc_data_filtered$variable =="disc_biochem" | disc_data_filtered$variable =="disc_biological" | disc_data_filtered$variable =="disc_chem" |disc_data_filtered$variable =="disc_compsci" | disc_data_filtered$variable =="disc_dentist" |disc_data_filtered$variable =="disc_earthplanet" | disc_data_filtered$variable =="disc_energy" | disc_data_filtered$variable =="disc_engtech"| disc_data_filtered$variable =="disc_environ" | disc_data_filtered$variable =="disc_healthprof"|disc_data_filtered$variable =="disc_immun" |disc_data_filtered$variable =="disc_matlsci"|disc_data_filtered$variable =="disc_math" | disc_data_filtered$variable =="disc_med" |disc_data_filtered$variable =="disc_neuro" |disc_data_filtered$variable =="disc_nurs"| disc_data_filtered$variable =="disc_pharma" | disc_data_filtered$variable =="disc_physics" |disc_data_filtered$variable =="disc_vet"| disc_data_filtered$variable =="disc_infosci", "Natural and applied sciences",
+ifelse(disc_data_filtered$variable =="disc_busin"| disc_data_filtered$variable =="disc_econ", "Business", 
+ifelse(disc_data_filtered$variable =="disc_psych" | disc_data_filtered$variable == "disc_socsci"| disc_data_filtered$variable =="disc_decisionsci", "Social science",                                  ifelse(disc_data_filtered$variable == "disc_multi", "Multidisciplinary",  "Other" )))))
+                                  
+ggplot(data =disc_data_filtered, aes(x=reorder(subset, subset, function(x) length(x)))) +
+  labs(y= "count", x = "Disciplinary subset", title = "Distribution of grouped disciplines") +
+  geom_bar(fill= "#238A8DFF") + coord_flip()
+
+
+```
+
+#### Country and geographical region of work (D3) 
+
+```{r country_supp, fig.cap = "The most common countries of employment of the respondents from the support data are  USA and the United Kingdom. When the countries were grouped by continent, Europe and North America were the most common respectively." }
+
+countries <- dplyr::select(support, dem_country)
+#View(countries)
+
+#Distribution of responses by country 
+
+ggplot(data=support, aes(x=reorder(dem_country, dem_country, function(x)-length(x)))) +
+  labs(y= "count", x = "country", title = "Distribution of respondents' country of employment") +
+  geom_bar(fill= "#238A8DFF") + theme(axis.text = element_text(angle = 90)) 
+
+#Distribution of responses by region 
+
+country2region_dict <- c("China" = "Asia", "Japan" = "Asia", "India" = "Asia", "RUSSIA" = "Asia", "Indonesia" = "Asia", "Bangladesh" = "Asia", "Korea, Republic of" = "Asia", "Taiwan" = "Asia", "Malaysia" = "Asia", "Philippines" = "Asia", "Viet Nam" = "Asia", "Thailand" = "Asia", "Singapore" = "Asia", "Pakistan" = "Asia", "Kazakhstan" = "Asia", "SOUTH KOREA" = "Asia", "Hong Kong" = "Asia", "Nepal" = "Asia", "Bhutan" = "Asia", 
+                          "Egypt" = "Middle East", "Jordan" = "Middle East", "Iran (Islamic Republic of)" = "Middle East", "United Arab Emirates" = "Middle East", "Lebanon" = "Middle East", "Israel" = "Middle East", "Saudi Arabia" = "Middle East", "Oman" = "Middle East", "Iraq" = "Middle East", "Qatar" = "Middle East", 
+                         "Australia" = "Australia/New Zealand", "New Zealand" = "Australia/New Zealand", 
+                         "Colombia" = "South/Central America", "Brazil" = "South/Central America", "Peru" = "South/Central America", "Argentina" = "South/Central America", "Chile" = "South/Central America", "Ecuador" = "South/Central America", "Guatemala" = "South/Central America", "Uruguay" = "South/Central America", "Venezuela" = "South/Central America", 
+                         "USA" = "North America", "Canada" = "North America", "Mexico" = "North America", "United States Minor Outlying Islands" = "North America", "Cuba" = "North America", "Costa Rica" = "North America", "Puerto Rico" = "North America",
+                         "South Africa" = "Africa", "Morocco" = "Africa", "Sudan" = "Africa", "Nigeria" = "Africa", "Ethiopia" = "Africa", "Mozambique" = "Africa", "Uganda" = "Africa", "Reunion" = "Africa", "Ghana" = "Africa", "Cameroon" = "Africa", "Burkina Faso" = "Africa", "Algeria" = "Africa", "Tunisia" = "Africa", "Zambia" = "Africa", "Senegal" = "Africa", "Mali" = "Africa", "TANZANIA" = "Africa", "Kenya" = "Africa", "Zimbabwe" = "Africa", "Congo" = "Africa", "Botswana" = "Africa", "Burundi" = "Africa", 
+                         "Slovakia" = "Europe",  "Sweden" = "Europe", "Croatia" = "Europe", "Italy" = "Europe", "Greece" = "Europe", "Czech Republic" = "Europe", "Romania" = "Europe", "France" = "Europe", "United Kingdom" = "Europe", "Germany" = "Europe", "Spain" = "Europe", "Portugal" = "Europe", "Slovenia" = "Europe", "Ukraine" = "Europe", "Poland" = "Europe", "Lithuania" = "Europe", "Turkey" = "Europe", "Netherlands" = "Europe", "Ireland" = "Europe", "Denmark" = "Europe", "Austria" = "Europe", "Macedonia, The Former Yugoslav Republic of" = "Europe", "Hungary" = "Europe", "Serbia and Montenegro" = "Europe", "Bulgaria" = "Europe", "Finland" = "Europe", "Switzerland" = "Europe", "Belgium" = "Europe", "Georgia" = "Europe", "Estonia" = "Europe", "Bosnia and Herzegovina" = "Europe", "Luxembourg" = "Europe", "Norway" = "Europe", "Iceland" = "Europe", "Andorra" = "Europe", "Albania" = "Europe", "Azerbaijan" = "Europe", "Latvia" = "Europe")
+
+## create new column in data frame
+disc_data_filtered$geo_region <- country2region_dict[disc_data_filtered$dem_country]
+
+
+
+ggplot(data=disc_data_filtered, aes(x=geo_region)) +
+  labs(y= "count", x = "Geographical region", title = "Distribution of employment countries grouped by geographical region") +
+  geom_bar(mapping = aes(x = geo_region, fill = geo_region))+ theme(axis.text = element_text(angle = 90)) 
+```
+
+### Data Need (L7) 
+
+The following examines what kinds of data the research support professionals need:
+
+#### Data need overview
+
+```{r needs_supp, fig.cap = "Based on the bar graph, observational or empirical data was needed the most among the respondents in the support data."}
+
+## Data needs columns
+
+need <- dplyr::select(support, need_open:need_othresp)
+#View(need)
+
+#Number of observations in each column
+colSums(need != "0", na.rm = TRUE) #without 0s and na's
+
+
+#Summary
+
+combined_need <- support %>% 
+  dplyr::select(c("need_open","need_obs","need_exp","need_sim","need_deriv", "need_oth", "need_othresp")) %>% 
+  pivot_longer(cols = c("need_open","need_obs","need_exp","need_sim","need_deriv", "need_oth", "need_othresp"), names_to = "variable",  values_to = "value")
+
+#View(combined_need)
+
+need_data <- dplyr::filter(combined_need, value != 0, na.rm = TRUE) 
+
+#View(need_data) #selected and filtered need dataset without 0s and na's
+
+##Distribution
+
+sort(prop.table(table(need_data$variable)), decreasing = TRUE)
+
+ggplot(data=need_data, aes(x=variable)) +
+  labs(y= "count", x = "data needs", title = "Distribution of respondents' data needs") +
+  geom_bar(mapping = aes(x = variable, fill = variable)) + scale_x_discrete(limits = c("need_obs","need_open","need_deriv", "need_exp","need_sim", "need_oth", "need_othresp"))
+
+```
+
+#### Data need and respondent demographics 
+
+```{r need x dem}
+
+ggplot(disc_data_filtered, aes(x = need_values, y = ..prop.., group = 1, fill = factor(..x..))) +
+  labs(y = "Percentage", x = element_blank(), title = "What type of data  needed by respondents' experience levels", fill = "Data Needs") +
+  facet_wrap(~ dem_exprnce) +
+  geom_bar(stat = "count", position = "dodge") + 
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(4, "mm"),
+        strip.text = element_text(size = 10)) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(labels = c("Derived or compiled", "Experimental", "Observational or emperical", "Simulation")) 
+
+
+#Need x discipline
+
+ggplot(disc_data_filtered, aes(x = need_values, y = ..prop.., group = 1, fill = factor(..x..))) +
+  labs(y = "Percentage", x = element_blank(), title = "What type of data is needed by respondents' disciplinary subset", fill = "Data Needs") +
+  facet_wrap(~ subset) +
+  geom_bar(stat = "count", position = "dodge") + 
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(3, "mm"),
+        strip.text = element_text(size = 6)) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(labels = c("Derived or compiled", "Experimental", "Observational or emperical", "Simulation")) 
+
+
+#Need x continent
+
+ggplot(disc_data_filtered, aes(x = need_values, y = ..prop.., group = 1, fill = factor(..x..))) +
+  labs(y = "Percentage", x = element_blank(), title = "What type of data is needed by respondents' continent of employment", fill = "Data Needs") +
+  facet_wrap(~ geo_region) +
+  geom_bar(stat = "count", position = "dodge") + 
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(3, "mm"),
+        strip.text = element_text(size = 7)) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(labels = c("Derived or compiled", "Experimental", "Observational or emperical", "Simulation")) 
+
+
+```
+
+**Conclusions:**
+
+1. In relation to data needs, the researchers and support datasets are very similar, as observational or empirical data is needed the most compared to the majority of demographic categories in both datasets.  
+
+2. Comparing the 4 main data needs variables (observational or empirical data, experimental data, simulation data, derived or compiled data) to respondents' years of experience, we see that the graphs are relatively similar between most of the categories. However, when looking at the relationship between simulation data needs and experience, the percent of simulation data in the 31+ years of experience group is substantially greater than the other 3 experience categories. This may suggest that more experienced respondents may be more likely to need simulation data because of potential reasons such as needing large quantities of data or using simulations for more advanced studies.
+
+### Data Use (L8)
+
+The following examines why the respondents or the people they support use or need secondary data, starting with the count of different uses and followed by a graph.
+
+#### Data use overview
+
+```{r use_supp, fig.cap=  "The 3 most common purposes for which data is used are for a new study, for teaching/training, and to prepare for a new project/proposal respectively."}
+
+# Data use columns
+
+use <- dplyr::select(support, use_nwstdy:use_othresp)
+#View(use)
+
+#Number of observations in each column
+colSums(use != "0", na.rm = TRUE) #without 0s and na's
+
+#Summary
+
+combined_use <- support %>% 
+  dplyr::select(c("use_nwstdy","use_calb","use_bnchmrk","use_vrfctn","use_inpt", "use_idea", "use_tch", "use_nwprj", "use_nwmth", "use_trnds", "use_cmprsn", "use_smvs", "use_intgrtn", "use_oth", "use_othresp")) %>% 
+  pivot_longer(cols = c("use_nwstdy","use_calb","use_bnchmrk","use_vrfctn","use_inpt", "use_idea", "use_tch", "use_nwprj", "use_nwmth", "use_trnds", "use_cmprsn", "use_smvs", "use_intgrtn", "use_oth", "use_othresp"), names_to = "variable",  values_to = "value")
+
+##View(combined_use)
+
+use_data <- dplyr::filter(combined_use, value != 0, na.rm = TRUE) 
+
+#View(use_data) #selected and filtered need dataset without 0s and na's
+
+##Distribution
+
+#sort(prop.table(table(use_data$variable)), decreasing = TRUE) 
+
+ggplot(data=use_data, aes(x=variable)) +
+  labs(y= "count", x = "data use", title = "Distribution of purposes for which data is used") +
+  geom_bar(fill= "#238A8DFF") + scale_x_discrete(limits = c("use_nwstdy",  "use_tch", "use_nwprj", "use_cmprsn", "use_intgrtn","use_idea","use_smvs", "use_trnds","use_vrfctn","use_inpt", "use_nwmth","use_bnchmrk","use_calb", "use_oth", "use_othresp")) +theme(axis.text.x = element_text(angle = 90))
+
+
+```
+
+#### Data use and respondent demographics
+
+```{r use x dem}
+
+#Use x experience
+
+ggplot(disc_data_filtered, aes(x = use_values, y = ..prop.., group = 1, fill = factor(..x..))) +
+  labs(y = "Percentage", x = element_blank(), title = "Purposes for which data are used by respondents' experience levels", fill = "Data Needs") +
+  facet_wrap(~ dem_exprnce) +
+  geom_bar(stat = "count", position = "dodge") + 
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(4, "mm"),
+        strip.text = element_text(size = 10)) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(labels = c("Basis for new study", "Comparing datasets", "Prepare for new project", "Teaching/Training")) 
+
+
+#Use x discipline
+
+ggplot(disc_data_filtered, aes(x = use_values, y = ..prop.., group = 1, fill = factor(..x..))) +
+  labs(y = "Percentage", x = element_blank(), title = "Purposes for which data are used by respondents' disciplinary subset", fill = "Data Needs") +
+  facet_wrap(~ subset) +
+  geom_bar(stat = "count", position = "dodge") + 
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(3, "mm"),
+        strip.text = element_text(size = 6)) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(labels = c("Basis for new study", "Comparing datasets", "Prepare for new project", "Teaching/Training")) 
+
+
+#Use x continent
+
+ggplot(disc_data_filtered, aes(x = use_values, y = ..prop.., group = 1, fill = factor(..x..))) +
+  labs(y = "Percentage", x = element_blank(), title = "Purposes for which data are used by respondents' continent", fill = "Data Needs") +
+  facet_wrap(~ geo_region) +
+  geom_bar(stat = "count", position = "dodge") + 
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(3, "mm"),
+        strip.text = element_text(size = 6)) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(labels = c("Basis for new study", "Comparing datasets", "Prepare for new project", "Teaching/Training")) 
+
+
+
+
+```
+
+**Conclusions:**
+
+1. Comparing the 4 main data use variables (basis for a new study, teaching/training, new project or proposal, compare multiple datasets) to respondents' years of experience, we see that using data for teaching or training is very common across all experience levels. This is reasonable because it can be assumed that respondents with lower levels of experience may be using data for training while more experienced respondents may be teaching others.  When it comes to respondents with 31+ years of experience, they were much more likely to use data for other reasons, such as preparing for a new project, rather than as a basis for a new study.  
+
+2. Comparing data use to respondents' disciplines, we can observe that using data for teaching or training occupies a large percentage in all of the disciplinary subsets. This may emphasize that data is frequently used to teach or train no matter what discipline one may be in. 
+
+
+
+### Data Find
+The following examines how research support professionals find their data.
+
+#### Data find (L10: how frequently do you find data in the following ways?)
+
+```{r freq_find,  fig.cap="The most common way the respondents find their data is by actively searching online."}
+
+#Overview:
+# find_actonln;L10: Frequency finding data by actively searching online
+# find_serendsrch;L10: Frequency finding data serendipitously when searching for something else
+# find_serendpas;L10: Frequency finding data serendipitously when NOT searching
+# find_share;L10: Frequency finding data while sharing or managing own data
+
+## Data find columns
+
+find <- dplyr::select(support, find_actonln:find_list)
+#View(need)
+
+#Number of observations in each column
+colSums(find != "0", na.rm = TRUE) #without 0s and na's
+
+#How data is found
+
+freq_find <- support %>%
+  dplyr::select(c("find_actonln","find_serendsrch","find_serendpas","find_share")) %>%
+  pivot_longer(cols = c("find_actonln","find_serendsrch","find_serendpas","find_share"), names_to = "variable", values_to = "frequency")
+
+#View(freq_find)
+
+ggplot(data=freq_find, aes(x=variable)) +
+  labs(y= "count", x = "data finds", title = "Distribution of the different ways respondents find their data") +
+  geom_bar(mapping = aes(x = variable, fill = frequency)) +scale_x_discrete(labels=c("Searching online", "Searching for something else", "Not searching", "Sharing or managing own data"))
+
+
+```
+**Conclusion:**
+
+The most common way the respondents find their data is by actively searching online shown by the first column in the graph above. However, even though serendipitously finding data did not happen as often, it should be noted that it is still an occasional occurrence. 
+
+#### Data find (L11: find data via what source)
+
+The following examines what sources the respondents discover their data:
+
+```{r freq_find_source,  fig.cap=  "The most common source used to discover data is via conversations with personal networks, followed by via mailing lists or forums and via conferences."}
+
+#Find data via what source:
+# find_netwk;L11: Find data via conversations with personal networks
+# find_creatr;L11: Find data via contacting data creator
+# find_collab;L11: Find data via developing collaborations  
+# find_conf;L11: Find data via attending conferences
+# find_list;L11: Find data via disciplinary mailing lists or forums
+
+combined_find <- support %>% 
+  dplyr::select(c("find_netwk", "find_creatr", "find_collab", "find_conf", "find_list")) %>% 
+  pivot_longer(cols = c("find_netwk", "find_creatr", "find_collab", "find_conf", "find_list"), names_to = "variable",  values_to = "value")
+
+#View(combined_find)
+
+find_data <- dplyr::filter(combined_find, value != 0, na.rm = TRUE) 
+
+#View(need_data) #selected and filtered need dataset without 0s and na's
+
+##Distribution
+
+sort(prop.table(table(find_data$variable)), decreasing = TRUE)
+
+ggplot(data=find_data, aes(x=variable)) +
+  labs(y= "count", x = "data finds", title = "Distribution of sources in which data is discovered") +
+  geom_bar(mapping = aes(x = variable, fill = variable)) 
+
+```
+**Conclusion:**
+
+When asking the respondents about the ways they or the people they support discover data, the most common source used is via conversations with personal networks, followed by via mailing lists or forums and consequently via attending conferences.
+
+
+
+#### Data find and respondent demographics
+
+```{r find x dem}
+
+#Find x experience
+
+#prop.table(table(disc_data_filtered$find_values, disc_data_filtered$dem_exprnce))
+
+ggplot(disc_data_filtered, aes(x = find_values, y = ..prop.., group = 1, fill = factor(..x..))) +
+  labs(y = "Percentage", x = element_blank(), title = "Ways data is discovered by respondents' experience levels", fill = "Data Finds") +
+  facet_wrap(~ dem_exprnce) +
+  geom_bar(stat = "count", position = "dodge") + 
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(4, "mm"),
+        strip.text = element_text(size = 10)) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(labels = c("find_conf", "find_creatr", "find_netwk", "find_list", "find_collab")) 
+
+
+#Find x discipline
+
+#prop.table(table(disc_data_filtered$find_values, disc_data_filtered$subset))
+
+ggplot(disc_data_filtered, aes(x = find_values, y = ..prop.., group = 1, fill = factor(..x..))) +
+  labs(y = "Percentage", x = element_blank(), title = "Ways data is discovered by respondents' disciplinary subset", fill = "Data Finds") +
+  facet_wrap(~ subset) +
+  geom_bar(stat = "count", position = "dodge") + 
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(3, "mm"),
+        strip.text = element_text(size = 6)) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(labels = c("find_conf", "find_creatr", "find_netwk", "find_list", "find_collab")) 
+
+
+#Find x continent
+
+#prop.table(table(disc_data_filtered$find_values, disc_data_filtered$geo_region))
+
+ggplot(disc_data_filtered, aes(x = find_values, y = ..prop.., group = 1, fill = factor(..x..))) +
+  labs(y = "Percentage", x = element_blank(), title = "Ways data is discovered by respondents' continent", fill = "Data Needs") +
+  facet_wrap(~ geo_region) +
+  geom_bar(stat = "count", position = "dodge") + 
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(3, "mm"),
+        strip.text = element_text(size = 6)) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(labels = c("find_conf", "find_creatr", "find_netwk", "find_list", "find_collab")) 
+
+
+
+
+```
+**Conclusions:**
+
+1. Looking at the ways the respondents found data based on their experience levels, we see that almost half of those with 0-5 years of experience found their data with conversations with personal networks. However, as experience levels increased, the percentage of data found via the networks decreased dramatically. This may suggest that more experienced respondents are more likely to look for and find data outside of their initial network, such as using mailing lists or attending conferences instead.
+
+2. Comparing all the individual graphs, we can see that finding data via conversations with personal networks is relatively common among all the disciplines. 
+
+
+3. Outside of North America and Europe, other countries seem to have a limited number of sources in which they find data. For example, none of the respondents from Australia/New Zealand and South/Central America indicated that they find data via attending conferences or via developing collaborations. However, the limited number of responses from those continents should be taken in consideration. 
+
+```{r source}
+ggplot(support, aes(x = source_multrepos)) +
+  geom_bar(fill = c("#FC4E07", "#E7B800","#00AF07"))
+ggplot(support, aes(x = source_discrepos)) +
+  geom_bar(fill = c("#FC4E07", "#E7B800","#00AF07"))
+ggplot(support, aes(x = source_gov)) +
+  geom_bar(fill = c("#FC4E07", "#E7B800","#00AF07"))
+ggplot(support, aes(x = source_netwk)) +
+  geom_bar(fill = c("#FC4E07", "#E7B800","#00AF07"))
+ggplot(support, aes(x = source_lit)) +
+  geom_bar(fill = c("#FC4E07", "#E7B800","#00AF07"))
+ggplot(support, aes(x = source_coderep)) +
+ geom_bar(fill = c("#FC4E07", "#E7B800","#00AF07"))
+ggplot(support, aes(x = source_srcheng)) +
+  geom_bar(fill = c("#FC4E07", "#E7B800","#00AF07"))
+ggplot(support, aes(x = source_profassc)) +
+  geom_bar(fill = c("#FC4E07", "#E7B800","#00AF07"))
+ggplot(support, aes(x = source_datsrcheng)) +
+  geom_bar(fill = c("#FC4E07", "#E7B800","#00AF07"))
+ggplot(support, aes(x = source_commrc)) +
+  geom_bar(fill = c("#FC4E07", "#E7B800","#00AF07"))
+```
+**Conclusions:**
+1. The most used sources are the government, literature, and search engines. The least used source is commercials. 
+
+### Tests for significance
+```{r tests_support}
+reuse_counts <- support %>%
+  dplyr::select(dem_reuseself | dem_reusegrp) %>%
+  #group_by(dem_exprnce) %>%
+  summarize(across(.fns = ~sum(!(.x == c("Data reusing is strongly encouraged")))), num_respondents = n()) 
+prop.test(reuse_counts$dem_reuseself, reuse_counts$dem_reusegrp) 
+#This tests shows a significant difference between proportions of people that strongly encourage data reuse across the level of self and group
+
+reuse_counts <- support %>%
+  dplyr::select(dem_reuseself | dem_reusedisc) %>%
+  #group_by(dem_exprnce) %>%
+  summarize(across(.fns = ~sum(!(.x == c("Data reusing is strongly encouraged")))), num_respondents = n()) 
+prop.test(reuse_counts$dem_reuseself, reuse_counts$dem_reusedisc) 
+#This tests shows a significant difference between proportions of people that strongly encourage data reuse across the level of self and disciplinary fields.
+
+reuse_counts <- support %>%
+  dplyr::select(dem_reuseself | dem_reuseorg) %>%
+  #group_by(dem_exprnce) %>%
+  summarize(across(.fns = ~sum(!(.x == c("Data reusing is strongly encouraged")))), num_respondents = n()) 
+prop.test(reuse_counts$dem_reuseself, reuse_counts$dem_reuseorg) 
+#This tests does not show a significant difference between proportions of people that strongly encourage data reuse across the level of self and organizations.
+
+```
+
+## SECTION 2: Researchers 
+
+In this section, we investigate the researchers data set containing survey answers from respondents who are researchers, students, managers, and individuals who indicated in open-response their roles including professors, educators, physicians, engineers to name a few. 
+
+This section begins with some overviews of the respondents in the data set, followed by more specific analysis through investigating certain variables grouped by the demographic characteristics of the respondents. 
+
+
+### Role of respondents (Q1)
+
+```{r role, fig.cap = "Most of the respondents from this dataset are researchers."}
+
+#Distribution of roles
+
+ggplot(data = research, aes(x= dem_role)) +
+  labs(title = "Distribution of respondents' roles") + 
+  labs(x = "Role") + 
+  geom_bar(mapping = aes(x = dem_role, fill = dem_role))
+
+
+```
+
+### Demographics of respondents (experience, discipline, country/geographical region)
+
+#### Years of Experience
+```{r experience, fig.cap = "Similar to the support dataset, the most frequent years of experience is between 6-15 years, followed by those with 16-30 years of experience.  "}
+
+#Distribution of experience
+
+research$dem_exprnce <- factor(research$dem_exprnce, levels = c("0-5", "6-15", "16-30", "31+"), ordered = TRUE)
+
+ggplot(data = research, aes(x= dem_exprnce)) +
+  labs(title = "Distribution of respondents' years of experience") +
+  geom_bar(mapping = aes(x = dem_exprnce, fill = dem_exprnce))
+
+```
+
+
+#### Discipline of specialization (D1)
+
+```{r disc, fig.cap = "Similar to the support dataset, respondents who specialize in the natural and applied sciences greatly outnumber the other disciplinary subsets."}
+
+disc_data_r <- research %>% 
+  dplyr::select(c("responseid", "dem_country", "disc_agricul", "disc_artshuman","disc_astronom","disc_biochem","disc_biological","disc_busin", "disc_chemeng", "disc_chem", "disc_compsci", "disc_decisionsci", "disc_dentist", "disc_earthplanet", "disc_econ", "disc_energy", "disc_engtech", "disc_environ", "disc_healthprof", "disc_immun", "disc_matlsci", "disc_math", "disc_med", "disc_multi", "disc_neuro", "disc_nurs", "disc_pharma", "disc_physics", "disc_psych", "disc_socsci", "disc_vet", "disc_infosci", "disc_other")) %>% 
+  pivot_longer(cols = c("disc_agricul", "disc_artshuman","disc_astronom","disc_biochem","disc_biological","disc_busin", "disc_chemeng", "disc_chem", "disc_compsci", "disc_decisionsci", "disc_dentist", "disc_earthplanet", "disc_econ", "disc_energy", "disc_engtech", "disc_environ", "disc_healthprof", "disc_immun", "disc_matlsci", "disc_math", "disc_med", "disc_multi", "disc_neuro", "disc_nurs", "disc_pharma", "disc_physics", "disc_psych", "disc_socsci", "disc_vet", "disc_infosci", "disc_other"), names_to = "variable",  values_to = "value")
+
+disc_r <- dplyr::filter(disc_data_r, value != 0) 
+
+
+#Distribution of disciplines
+
+ggplot(data=disc_r, aes(x=reorder(value, value, function(x) length(x)))) +
+  labs(y= "count", x = "disciplines", title = "Distribution of discipline chosen by the respondents") +
+  geom_bar(fill= "#238A8DFF")+ coord_flip()
+
+
+#Grouped disciplines
+
+disc_r$subset <- ifelse(disc_r$variable == "disc_agricul" |
+disc_r$variable =="disc_artshuman" |disc_r$variable =="disc_astronom", "Humanities",
+ifelse(disc_r$variable =="disc_biochem" | disc_r$variable =="disc_biological" | disc_r$variable =="disc_chem" |disc_r$variable =="disc_compsci" | disc_r$variable =="disc_dentist" |disc_r$variable =="disc_earthplanet" | disc_r$variable =="disc_energy" | disc_r$variable =="disc_engtech"| disc_r$variable =="disc_environ" | disc_r$variable =="disc_healthprof"|disc_r$variable =="disc_immun" |disc_r$variable =="disc_matlsci"|disc_r$variable =="disc_math" | disc_r$variable =="disc_med" |disc_r$variable =="disc_neuro" |disc_r$variable =="disc_nurs"| disc_r$variable =="disc_pharma" | disc_r$variable =="disc_physics" |disc_r$variable =="disc_vet"| disc_r$variable =="disc_infosci", "Natural and applied sciences",
+ifelse(disc_r$variable =="disc_busin"| disc_r$variable =="disc_econ", "Business", 
+ifelse(disc_r$variable =="disc_psych" | disc_r$variable == "disc_socsci"| disc_r$variable =="disc_decisionsci", "Social science",                                  ifelse(disc_r$variable == "disc_multi", "Multidisciplinary",  "Other" )))))
+                                  
+ggplot(data =disc_r, aes(x=reorder(subset, subset, function(x) length(x)))) +
+  labs(y= "count", x = "Disciplinary subset", title = "Distribution of grouped disciplines") +
+  geom_bar(fill= "#238A8DFF") + coord_flip()
+
+
+```
+
+#### Country and geographical region of work (D3)
+
+```{r country, fig.cap = "Most of the respondents from this dataset are employed in the USA and in  continents such as Europe, North America, and Asia respectively." }
+
+countries <- dplyr::select(research, dem_country)
+#View(countries)
+
+#Distribution of responses by country 
+
+ggplot(data=research, aes(x=reorder(dem_country, dem_country, function(x)-length(x)))) +
+  labs(y= "count", x = "country", title = "Distribution of respondents' country of employment") +
+  geom_bar(fill= "#238A8DFF") + theme(axis.text = element_text(angle = 90)) 
+
+#Distribution of responses by region 
+
+country2region_dict <- c("China" = "Asia", "Japan" = "Asia", "India" = "Asia", "RUSSIA" = "Asia", "Indonesia" = "Asia", "Bangladesh" = "Asia", "Korea, Republic of" = "Asia", "Taiwan" = "Asia", "Malaysia" = "Asia", "Philippines" = "Asia", "Viet Nam" = "Asia", "Thailand" = "Asia", "Singapore" = "Asia", "Pakistan" = "Asia", "Kazakhstan" = "Asia", "SOUTH KOREA" = "Asia", "Hong Kong" = "Asia", "Nepal" = "Asia", "Bhutan" = "Asia", 
+                          "Egypt" = "Middle East", "Jordan" = "Middle East", "Iran (Islamic Republic of)" = "Middle East", "United Arab Emirates" = "Middle East", "Lebanon" = "Middle East", "Israel" = "Middle East", "Saudi Arabia" = "Middle East", "Oman" = "Middle East", "Iraq" = "Middle East", "Qatar" = "Middle East", 
+                         "Australia" = "Australia/New Zealand", "New Zealand" = "Australia/New Zealand", 
+                         "Colombia" = "South/Central America", "Brazil" = "South/Central America", "Peru" = "South/Central America", "Argentina" = "South/Central America", "Chile" = "South/Central America", "Ecuador" = "South/Central America", "Guatemala" = "South/Central America", "Uruguay" = "South/Central America", "Venezuela" = "South/Central America", 
+                         "USA" = "North America", "Canada" = "North America", "Mexico" = "North America", "United States Minor Outlying Islands" = "North America", "Cuba" = "North America", "Costa Rica" = "North America", "Puerto Rico" = "North America",
+                         "South Africa" = "Africa", "Morocco" = "Africa", "Sudan" = "Africa", "Nigeria" = "Africa", "Ethiopia" = "Africa", "Mozambique" = "Africa", "Uganda" = "Africa", "Reunion" = "Africa", "Ghana" = "Africa", "Cameroon" = "Africa", "Burkina Faso" = "Africa", "Algeria" = "Africa", "Tunisia" = "Africa", "Zambia" = "Africa", "Senegal" = "Africa", "Mali" = "Africa", "TANZANIA" = "Africa", "Kenya" = "Africa", "Zimbabwe" = "Africa", "Congo" = "Africa", "Botswana" = "Africa", "Burundi" = "Africa", 
+                         "Slovakia" = "Europe",  "Sweden" = "Europe", "Croatia" = "Europe", "Italy" = "Europe", "Greece" = "Europe", "Czech Republic" = "Europe", "Romania" = "Europe", "France" = "Europe", "United Kingdom" = "Europe", "Germany" = "Europe", "Spain" = "Europe", "Portugal" = "Europe", "Slovenia" = "Europe", "Ukraine" = "Europe", "Poland" = "Europe", "Lithuania" = "Europe", "Turkey" = "Europe", "Netherlands" = "Europe", "Ireland" = "Europe", "Denmark" = "Europe", "Austria" = "Europe", "Macedonia, The Former Yugoslav Republic of" = "Europe", "Hungary" = "Europe", "Serbia and Montenegro" = "Europe", "Bulgaria" = "Europe", "Finland" = "Europe", "Switzerland" = "Europe", "Belgium" = "Europe", "Georgia" = "Europe", "Estonia" = "Europe", "Bosnia and Herzegovina" = "Europe", "Luxembourg" = "Europe", "Norway" = "Europe", "Iceland" = "Europe", "Andorra" = "Europe", "Albania" = "Europe", "Azerbaijan" = "Europe", "Latvia" = "Europe")
+
+## create new column in data frame
+disc_r$geo_region <- country2region_dict[disc_r$dem_country]
+
+ggplot(data=disc_r, aes(x = geo_region, y = ..prop.., group = 1, fill = factor(..x..))) +
+  labs(y = "Percentage", x = element_blank(), title = "Distribution of employment countries grouped by geogrpahical regions") +
+  geom_bar(stat = "count", position = "dodge") + 
+  theme(axis.ticks.x=element_blank(), 
+       legend.title=element_blank(), 
+        legend.position = "none") + 
+  aes(stringr::str_wrap(geo_region, 12),) + xlab(NULL) +
+  scale_y_continuous(labels = scales::percent) 
+
+```
+
+```{r, include=FALSE} 
+# Manipulate Data - some might be a little repetitive to the above code, this is just so I don't need to go back and same variable names :D
+
+# Experience group 
+
+## change '15-Jun' to '6-15' in dem_exprnce column
+research <- research %>%
+  mutate(dem_exprnce = replace(dem_exprnce, dem_exprnce == '15-Jun', '6-15'))
+
+
+## make the experience levels be in order
+research$dem_exprnce <- factor(research$dem_exprnce, levels = c("0-5", "6-15", "16-30", "31+"),
+                              ordered = TRUE)
+
+
+
+# Discipline
+
+combined_disc <- research %>% 
+  dplyr::select(c("responseid", "dem_country", "disc_agricul", "disc_artshuman","disc_astronom","disc_biochem","disc_biological","disc_busin", "disc_chemeng", "disc_chem", "disc_compsci", "disc_decisionsci", "disc_dentist", "disc_earthplanet", "disc_econ", "disc_energy", "disc_engtech", "disc_environ", "disc_healthprof", "disc_immun", "disc_matlsci", "disc_math", "disc_med", "disc_multi", "disc_neuro", "disc_nurs", "disc_pharma", "disc_physics", "disc_psych", "disc_socsci", "disc_vet", "disc_infosci", "disc_other")) %>% 
+  pivot_longer(cols = c("disc_agricul", "disc_artshuman","disc_astronom","disc_biochem","disc_biological","disc_busin", "disc_chemeng", "disc_chem", "disc_compsci", "disc_decisionsci", "disc_dentist", "disc_earthplanet", "disc_econ", "disc_energy", "disc_engtech", "disc_environ", "disc_healthprof", "disc_immun", "disc_matlsci", "disc_math", "disc_med", "disc_multi", "disc_neuro", "disc_nurs", "disc_pharma", "disc_physics", "disc_psych", "disc_socsci", "disc_vet", "disc_infosci", "disc_other"), names_to = "dem_disc",  values_to = "discipline") %>%
+  filter(discipline != 0) 
+
+## Re-code discipline to larger subgroups 
+
+# Broader discipline groups: Humanities and Arts, Social Science, Natural Science, CS and Engineering, Healthcare and Medicine, Multidisciplinary, and Other
+
+# disc_group_dict <- c("disc_agricul" = "Natural Science", "disc_artshuman" = "Humanities and Arts", "disc_astronom" = "Natural Science", "disc_biochem" = "Natural Science", "disc_biological" = "Natural Science", "disc_busin" = "Social Science", "disc_chemeng" = "CS and Engineering", "disc_chem" = "Natural Science", "disc_compsci" = "CS and Engineering", "disc_decisionsci" = "Social Science", "disc_dentist" = "Healthcare and Medicine", "disc_earthplanet" = "Natural Science", "disc_econ" = "Social Science", "disc_energy" = "Natural Science", "disc_engtech" = "CS and Engineering", "disc_environ" = "Natural Science", "disc_healthprof" = "Healthcare and Medicine", "disc_immun" = "Natural Science", "disc_matlsci" = "Natural Science", "disc_math" = "Natural Science", "disc_med" = "Healthcare and Medicine", "disc_multi" = "Multidisciplinary", "disc_neuro" = "Natural Science", "disc_nurs" = "Healthcare and Medicine", "disc_pharma" = "Healthcare and Medicine", "disc_physics" = "Natural Science", "disc_psych" = "Social Science", "disc_socsci" = "Social Science", "disc_vet" = "Healthcare and Medicine", "disc_infosci" = "Social Science" , "disc_other" = "Other")
+
+## create new column in the reshaped combined_disc data frame
+# combined_disc$disc_group <- disc_group_dict[combined_disc$dem_disc]
+
+combined_disc$disc_group <- ifelse(disc_r$variable == "disc_agricul" |
+disc_r$variable =="disc_artshuman" |disc_r$variable =="disc_astronom", "Humanities",
+ifelse(disc_r$variable =="disc_biochem" | disc_r$variable =="disc_biological" | disc_r$variable =="disc_chem" |disc_r$variable =="disc_compsci" | disc_r$variable =="disc_dentist" |disc_r$variable =="disc_earthplanet" | disc_r$variable =="disc_energy" | disc_r$variable =="disc_engtech"| disc_r$variable =="disc_environ" | disc_r$variable =="disc_healthprof"|disc_r$variable =="disc_immun" |disc_r$variable =="disc_matlsci"|disc_r$variable =="disc_math" | disc_r$variable =="disc_med" |disc_r$variable =="disc_neuro" |disc_r$variable =="disc_nurs"| disc_r$variable =="disc_pharma" | disc_r$variable =="disc_physics" |disc_r$variable =="disc_vet"| disc_r$variable =="disc_infosci", "Natural and applied sciences",
+ifelse(disc_r$variable =="disc_busin"| disc_r$variable =="disc_econ", "Business", 
+ifelse(disc_r$variable =="disc_psych" | disc_r$variable == "disc_socsci"| disc_r$variable =="disc_decisionsci", "Social science",                                  ifelse(disc_r$variable == "disc_multi", "Multidisciplinary",  "Other" )))))
+# Re-code respondent country to geographical region
+
+## Regions: Asia, Europe, Middle East, Africa, North America, South/Central America, Australia/New Zealand
+
+country2region_dict <- c("China" = "Asia", "Japan" = "Asia", "India" = "Asia", "RUSSIA" = "Asia", "Indonesia" = "Asia", "Bangladesh" = "Asia", "Korea, Republic of" = "Asia", "Taiwan" = "Asia", "Malaysia" = "Asia", "Philippines" = "Asia", "Viet Nam" = "Asia", "Thailand" = "Asia", "Singapore" = "Asia", "Pakistan" = "Asia", "Kazakhstan" = "Asia", "SOUTH KOREA" = "Asia", "Hong Kong" = "Asia", "Nepal" = "Asia", "Bhutan" = "Asia", 
+                          "Egypt" = "Middle East", "Jordan" = "Middle East", "Iran (Islamic Republic of)" = "Middle East", "United Arab Emirates" = "Middle East", "Lebanon" = "Middle East", "Israel" = "Middle East", "Saudi Arabia" = "Middle East", "Oman" = "Middle East", "Iraq" = "Middle East", "Qatar" = "Middle East", 
+                         "Australia" = "Australia/New Zealand", "New Zealand" = "Australia/New Zealand", 
+                         "Colombia" = "South/Central America", "Brazil" = "South/Central America", "Peru" = "South/Central America", "Argentina" = "South/Central America", "Chile" = "South/Central America", "Ecuador" = "South/Central America", "Guatemala" = "South/Central America", "Uruguay" = "South/Central America", "Venezuela" = "South/Central America", 
+                         "USA" = "North America", "Canada" = "North America", "Mexico" = "North America", "United States Minor Outlying Islands" = "North America", "Cuba" = "North America", "Costa Rica" = "North America", "Puerto Rico" = "North America",
+                         "South Africa" = "Africa", "Morocco" = "Africa", "Sudan" = "Africa", "Nigeria" = "Africa", "Ethiopia" = "Africa", "Mozambique" = "Africa", "Uganda" = "Africa", "Reunion" = "Africa", "Ghana" = "Africa", "Cameroon" = "Africa", "Burkina Faso" = "Africa", "Algeria" = "Africa", "Tunisia" = "Africa", "Zambia" = "Africa", "Senegal" = "Africa", "Mali" = "Africa", "TANZANIA" = "Africa", "Kenya" = "Africa", "Zimbabwe" = "Africa", "Congo" = "Africa", "Botswana" = "Africa", "Burundi" = "Africa", 
+                         "Slovakia" = "Europe",  "Sweden" = "Europe", "Croatia" = "Europe", "Italy" = "Europe", "Greece" = "Europe", "Czech Republic" = "Europe", "Romania" = "Europe", "France" = "Europe", "United Kingdom" = "Europe", "Germany" = "Europe", "Spain" = "Europe", "Portugal" = "Europe", "Slovenia" = "Europe", "Ukraine" = "Europe", "Poland" = "Europe", "Lithuania" = "Europe", "Turkey" = "Europe", "Netherlands" = "Europe", "Ireland" = "Europe", "Denmark" = "Europe", "Austria" = "Europe", "Macedonia, The Former Yugoslav Republic of" = "Europe", "Hungary" = "Europe", "Serbia and Montenegro" = "Europe", "Bulgaria" = "Europe", "Finland" = "Europe", "Switzerland" = "Europe", "Belgium" = "Europe", "Georgia" = "Europe", "Estonia" = "Europe", "Bosnia and Herzegovina" = "Europe", "Luxembourg" = "Europe", "Norway" = "Europe", "Iceland" = "Europe", "Andorra" = "Europe", "Albania" = "Europe", "Azerbaijan" = "Europe", "Latvia" = "Europe")
+
+## create new column in researcher data frame
+research$country_region <- country2region_dict[research$dem_country]
+
+
+
+# Data Need 
+
+## Reshape columns for data need
+
+combined_need <- research %>% 
+  dplyr::select(c("responseid", "dem_exprnce", "country_region", "need_obs","need_exp","need_sim","need_deriv","need_oth")) %>% 
+  pivot_longer(cols = c("need_obs","need_exp","need_sim","need_deriv","need_oth"), names_to = "variable",  values_to = "value") %>% 
+  filter(value != 0) 
+
+
+# Finding Data 
+
+## Reshaping columns beginning with find_
+
+## Reshape columns beginning with find_ by question 
+## separately investigate find_litdat (Q10), find_ease (Q11)
+## exclude open response find_whoothresp (Q6), find_chalothresp (Q11a)
+
+## Who finds the data (Q6) 
+whofind_Q6 <- research %>% 
+  dplyr::select("responseid", "dem_exprnce", "country_region", "find_whoself","find_whograd", "find_whosuppt", "find_whonetwk", "find_whooth") %>%
+  pivot_longer(cols = c("find_whoself","find_whograd", "find_whosuppt", "find_whonetwk", "find_whooth"), names_to = "Q6",  values_to = "value") %>%
+  filter(value != 0 & value != "Not asked") 
+
+## How often do researchers find data in the following ways? 
+howfind_Q8 <- research %>% 
+  dplyr::select("responseid", "dem_exprnce", "find_whoself", "country_region", "find_actonln", "find_serendsrch", "find_serendpas", "find_share") %>% 
+  pivot_longer(cols = c("find_actonln", "find_serendsrch", "find_serendpas", "find_share"), names_to = "Q8", values_to = "frequency") 
+
+howfind_dict <- c("find_actonln" = "Actively searching online", "find_serendsrch" = "Serendipitously when searching for something else", "find_serendpas" = "Serendipitously when NOT searching", "find_share" = "While sharing or managing own data", "find_netwk" = "Via conversations with personal networks", "find_creatr" = "Via contacting data creator", "find_collab" = "Via developing collaborations", "find_conf" = "Via attending conferences", "find_list" = " via disciplinary mailing lists or forums")
+
+howfind_Q8$value <- howfind_dict[howfind_Q8$Q8]
+
+## What is used to find, discover or make sense of data? 
+discover_Q10a <- research %>% 
+  dplyr::select("responseid", "dem_exprnce","country_region", "find_netwk","find_creatr", "find_collab", "find_conf", "find_list") %>%
+  pivot_longer(cols = c("find_netwk","find_creatr", "find_collab", "find_conf", "find_list"), names_to = "Q10a",  values_to = "value") %>%
+  filter(value != 0 & value != "Not asked") 
+
+## Why is it challenging to find the data?
+challenges_Q11a <- research %>% 
+  dplyr::select("responseid", "dem_exprnce", "country_region", "find_chalaccs","find_chalskill", "find_chaldistrb", "find_chaldigtl", "find_chaltools", "find_chalnetwk", "find_chaloth") %>%
+  pivot_longer(cols = c("find_chalaccs","find_chalskill", "find_chaldistrb", "find_chaldigtl", "find_chaltools", "find_chalnetwk", "find_chaloth"), names_to = "Q11a",  values_to = "value") %>%
+  filter(value != 0 & value != "Not asked") 
+
+
+# Discover data 
+
+access_Q10b <- research %>% 
+  dplyr::select("responseid", "dem_exprnce", "country_region", "accss_netwk", "accss_creatr", "accss_collab", "accss_conf", "accss_list") %>% 
+  pivot_longer(cols = c("accss_netwk", "accss_creatr", "accss_collab", "accss_conf", "accss_list"), names_to = "10b", values_to = "value") %>% 
+  filter(value != 0 & value != "Not asked") 
+
+
+# Making sense of data 
+
+makesense_Q10c <- research %>% 
+  dplyr::select("responseid", "dem_exprnce", "country_region", "eval_netwk", "eval_creatr", "eval_collab", "eval_conf", "eval_list") %>% 
+  pivot_longer(cols = c("eval_netwk", "eval_creatr", "eval_collab", "eval_conf", "eval_list"), names_to = "10c", values_to = "value") %>% 
+  filter(value != 0 & value != "Not asked") 
+
+
+#Data Source 
+
+## Reshaping columns beginning with source_
+## excluding open response source_open
+
+combined_source <- research %>% 
+  dplyr::select("responseid", "dem_exprnce", "source_multrepos", "source_discrepos", "source_gov", "source_netwk", "source_lit", "source_coderep", "source_srcheng", "source_profassc", "source_datsrcheng", "source_commrc", "source_suppt") %>%
+  pivot_longer(cols = c("source_multrepos", "source_discrepos", "source_gov", "source_netwk", "source_lit", "source_coderep", "source_srcheng", "source_profassc", "source_datsrcheng", "source_commrc", "source_suppt"), names_to = "data_source",  values_to = "frequency") %>%
+  group_by(dem_exprnce, data_source, frequency) %>%
+  dplyr::summarise(num = n()) #n gives the count
+
+# re-code data_source to show actual source 
+data_source_dict <- c("source_coderep" = "Code repository", "source_commrc" = "Commercial sources", "source_datsrcheng" = "Data specific search engines", "source_discrepos" = "Discipline-specific data repository", "source_gov" = "Governmental agencies and websites", "source_lit" = "Academic literature", "source_multrepos" = "Multidisciplinary data repository", "source_netwk" = "Personal networks", "source_profassc" = "Professional associations", "source_srcheng" = "General search engines e.g. Google", "source_suppt" = "Consultation with research support")
+
+combined_source$data_source_name <- data_source_dict[combined_source$data_source]
+
+combined_source <- combined_source %>%
+  group_by(dem_exprnce, data_source, frequency) %>%
+  mutate(percentage = num / sum(num))
+
+
+# Data Use 
+
+## Reshaping columns beginning with use_
+## excluding open response use_othresp
+
+combined_use <- research %>% 
+  dplyr::select(responseid, dem_exprnce, country_region, starts_with("use_")) %>% 
+  subset(select = -c(use_othresp)) %>% 
+  pivot_longer(cols = starts_with("use_"), names_to = "data_use", values_to = "value") %>% 
+  filter(value != 0) 
+
+combined_reuse <- research %>% 
+  dplyr::select("responseid", "dem_exprnce", "country_region", "dem_sharself", "dem_shargrp", "dem_shardisc", "dem_sharorg", "dem_reuseself", "dem_reusegrp", "dem_reusedisc", "dem_reuseorg") %>% 
+  pivot_longer(cols = c("dem_reuseself", "dem_reusegrp", "dem_reusedisc", "dem_reuseorg"), names_to = "data_reuse", values_to = "value") %>% 
+  filter(value != 0) 
+
+```
+
+### Data need (Q3)
+
+We explore what respondents need data for in barplots below. 
+
+```{r,  fig.cap = "The greatest area of need for respondents is obervational or emperical data followed by experimental data."} 
+
+ggplot(data=combined_need, aes(x = value, y = ..prop.., group = 1)) +
+  labs(y= "Percentage", x = "Data Need", title = "What type of data is needed?") +
+  geom_bar(stat = "count", fill = "#80CDC1") + 
+  theme(axis.ticks.x=element_blank(),
+        legend.title=element_blank(), 
+        legend.position = "none") +
+  scale_y_continuous(labels = scales::percent)
+```
+
+We then group respondents' data need by their discipline groups. [Note, depending on how the disciplines are grouped, the results of the barplot could change].  
+
+#### Data Need and Respondent Disciplines
+```{r, fig.cap = "Observational or emperical data is needed the most out of all grouped disciplines, accounting for the highest percentage of data need in Social Sciences with over 50% of respndents of that discipline needing that type of data.", fig.width=10, fog.height=6}
+
+# merge discipline and need 
+merge_disc_need <- merge(combined_need, combined_disc, by = "responseid")
+
+# merge_disc_need %>% 
+#   group_by(disc_group, value) %>% 
+#   summarize(num = n())
+ 
+ggplot(data=merge_disc_need, aes(x = value, y = ..prop.., group = 1,  fill = factor(..x..))) +
+  labs(y= "Percentage", title = "What type of data is needed by grouped discipline?") +
+  facet_wrap(~ disc_group) +
+  geom_bar(stat = "count") + 
+  theme(axis.ticks.x=element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank()) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette="Set3", name = "Data need",  labels = c("Derived or compiled", "Experimental", "Observational or emperical", "Other", "Simulation"))  
+```
+
+It appears that observational or empirical data is most needed followed by experimental data across all of the discipline groups.  Overall, the trends in data need is as expected for each discipline group with respondents in the natural sciences having the greatest proportion needing experimental data, respondents in business having the greatest proportion needing simulation (models) data, respondents in the humanities having the greatest proportion needing derived or compiled data. Note, as mentioned above, these results may differ if the original disciplines from the survey were grouped differently. 
+
+We then explore trends in who finds data for the respondents. 
+
+### Who finds data (Q6)
+```{r, fig.cap = "Over 50% of respondents find data themselves followed by nearly 25% of respondents who find data from someone in their personal network."}
+
+ggplot(data=whofind_Q6, aes(x = value, y = ..prop.., group = 1)) +
+  labs(y= "Percentage", x = element_blank(), title = "Who finds data?") +
+  geom_bar(stat = "count", fill = "#80CDC1") + 
+  theme(axis.ticks.x=element_blank(),
+        legend.title=element_blank(), 
+        legend.position = "none") +
+  aes(stringr::str_wrap(value, 15),) + xlab(NULL) +
+  scale_y_continuous(labels = scales::percent)
+```
+
+
+Over 50% of respondents find data themselves and almost 25% find data through someone in their personal network. 
+
+We then split by experience group below. 
+
+#### Who finds data by experience group 
+```{r, fig.cap = "The majority of researchers in all experience groups find data themselves followed by finding data through someone in their personal network. Excluding the group other, the proportion of respondents in the 0-5 experience group who find data from graduate students is the lowest, and the proportion of respondents in the other experience groups who find data from research support professionals is the lowest."} 
+
+ggplot(data=whofind_Q6, aes(x = value)) +
+  labs(y= "Percentage", x = element_blank(), title = "Who finds data by respondent experience?") +
+  geom_bar(aes(y = ..prop.., group = dem_exprnce, fill=factor(..x..)), stat = "count") + 
+  facet_wrap(~dem_exprnce) +
+  theme(axis.ticks.x=element_blank(),
+        legend.title=element_blank(), 
+        legend.position = "none") +
+  scale_fill_brewer(palette="Set3") +
+  aes(stringr::str_wrap(value, 15),) + xlab(NULL) +
+  scale_y_continuous(labels = scales::percent)
+```
+
+
+It appears that across all experience groups, respondents indicated they most often find data themselves. The percent of each experience group who indicate they find data themselves decreases as experience increases, nearly 60% of respondents in the 0-5 groups compared to less than 50% of the 31+ experience group. This may indicate the ability to outsource the data finding process to research assistants and graduate students among more experienced respondents or that more experienced respondents are more aware of support professionals who may aid in finding data.  
+
+We see similar levels of finding data through someone in their personal network and through research support professionals across all experience groups. 
+
+Next, we explore the challenges to finding data. 
+
+### Challenges to finding data (Q11a)
+```{r,  fig.cap = "Data is not accessible is the most common challenge to finding data followed by data being in many different places."}
+
+ggplot(data=challenges_Q11a, aes(x = value, y = ..prop.., group = 1)) +
+  labs(y= "Percentage", x = "Challenges", title = "Challenges to find data") +
+  geom_bar(stat = "count", fill = "#80CDC1") + 
+  theme(axis.ticks.x=element_blank(),
+        legend.title=element_blank(), 
+        legend.position = "none") +
+  aes(stringr::str_wrap(value, 15),) + xlab(NULL) +
+  scale_y_continuous(labels = scales::percent)
+```
+
+We then split by experience group to better understand the challenges experienced at all experience levels. 
+
+#### Challenges to finding data by Experience group 
+```{r, fig.cap="In all experience groups, data are not accessible is the most common challenge among respondents, followed by data are in many different places. Excluding the challenge other, not having necessary personal networks appear to be the least common challenge throughout the experience groups. A smaller percentage of respondents in the 31+ experience group considers data not being accessible a challenge compared to the rest of the groups.", fig.width = 7,fig.height = 4}
+
+ggplot(data=challenges_Q11a, aes(x = value)) +
+  labs(y= "Percentage", x = "Challenges", title = "Challenges to find data by respondent experience") +
+  geom_bar(aes(y = ..prop.., group = dem_exprnce, fill=factor(..x..)), stat = "count", position = "dodge") + 
+  facet_wrap(~ dem_exprnce) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  aes(stringr::str_wrap(value, 20),) + xlab(NULL) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette="Set3",name = "Challenges",  labels = c("Data are in many different places", "Data are not acessible", "Data are not digital", "Don't have necessary personal network", "Don't know where or how to look for data", "Online tools are inadequate", "Other"))   
+```
+
+It appears that the challenges to find data across all experience groups are similar with data being not accessible and data in many different places as the first and second most common challenge. Nearly 30% of respondents in the 0-5 experience group indicated data not accessible as a challenge while that challenges has less than 25% of respondents in the 31+ experience group. Contrasting, the percentage of respondents indicating data are in many different places increase as experience increases. This trend may indicate that the more experience a respondent has, the easier it becomes to navigate resources to find data, however, this accessibility may reveal that necessary data are inconveniently located in many different places. It could indicate the need for better resources for researchers with less experience to make data accessible for them and better consolidation or organization of data. 
+
+We explore some of the challenges by isolating the respondents who indicated they face a certain challenge and plotting other variables. The most interesting trends are shown below.
+
+Relationship between data source and respondents who indicated they did not know where or how to find data [note that some sources did not show much difference and were not included in the plots. Only sources which had interpretable trends are shown below.]:
+
+First, we isolated respondents who indicated they don't know where or how to find data and compared their frequency of use of consultation with research support, data specific search engines, discipline-specific data repositories and general search engines with the frequency of use of the entire respondent group. 
+
+
+```{r, fig.cap = "A lesser proportion of respondents who indicated they do not know where or how to find data as a challenge use consultation with research support, data specific search engines, and disciplinary specific data-repositories." , fig.height = 6, fig.width =12} 
+#excluding open response source_open
+
+idk_where <- research %>% 
+  dplyr::filter(find_chalskill == "Don't know where or how to look for data") 
+
+idk_source <- idk_where %>% 
+  dplyr::select("responseid", "dem_exprnce", "source_multrepos", "source_discrepos", "source_gov", "source_netwk", "source_lit", "source_coderep", "source_srcheng", "source_profassc", "source_datsrcheng", "source_commrc", "source_suppt") %>%
+  pivot_longer(cols = c("source_multrepos", "source_discrepos", "source_gov", "source_netwk", "source_lit", "source_coderep", "source_srcheng", "source_profassc", "source_datsrcheng", "source_commrc", "source_suppt"), names_to = "data_source",  values_to = "frequency") %>%
+  group_by(dem_exprnce, data_source, frequency) %>%
+  dplyr::summarize(num = n()) #n gives the count
+
+idk_source$data_source_name <- data_source_dict[idk_source$data_source]
+
+idk_source <- idk_source %>%
+  mutate(percentage = num / sum(num))
+# makign data frame with percents all respondents
+source_idkwhere_all <- c("Consultation with research support",  "Consultation with research support", "Consultation with research support", "Data specific search engines", "Data specific search engines", "Data specific search engines", "Discipline-specific data repository", "Discipline-specific data repository", "Discipline-specific data repository", "General search engine e.g. Google", "General search engine e.g. Google","General search engine e.g. Google" )
+sourc_idkall_freq <- c("Never", "Ocassionally", "Often", "Never", "Ocassionally", "Often", "Never", "Ocassionally", "Often", "Never", "Ocassionally", "Often")
+perc_idk_all <-c(0.4, 0.49, 0.11, 0.38, 0.37, 0.25, 0.19, 0.40, 0.41, 0.11, 0.30, 0.59)
+
+plt1df <- data.frame(source_idkwhere_all, sourc_idkall_freq, perc_idk_all)
+
+# makign data frame with percents don't know where to look 
+source_idkwhere <- c("Consultation with research support",  "Consultation with research support", "Consultation with research support", "Data specific search engines", "Data specific search engines", "Data specific search engines", "Discipline-specific data repository", "Discipline-specific data repository", "Discipline-specific data repository", "General search engine e.g. Google", "General search engine e.g. Google","General search engine e.g. Google" )
+sourc_idk_freq <- c("Never", "Ocassionally", "Often", "Never", "Ocassionally", "Often", "Never", "Ocassionally", "Often", "Never", "Ocassionally", "Often")
+perc_idk <-c(0.45, 0.46, 0.07, 0.44, 0.39, 0.17, 0.22, 0.44, 0.34, 0.09, 0.30, 0.61)
+
+plt2df <- data.frame(source_idkwhere, sourc_idk_freq, perc_idk)
+
+plt1 <- ggplot(data=plt1df, aes(x = sourc_idkall_freq, y = perc_idk_all,  fill = sourc_idkall_freq)) +
+  labs(y= "Percentage", x = "When data is found", title = "Frequency of using sources to find data: all respondents") +
+  geom_bar(stat= "identity", position = "dodge") +
+  facet_wrap(~ source_idkwhere_all) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank()) +
+  aes(stringr::str_wrap(sourc_idkall_freq, 15),) + xlab(NULL) +
+  scale_fill_brewer(palette="Set3", name= "Frequency") + 
+   scale_y_continuous(labels = scales::percent,limits = c(0, 0.7))
+
+plt2 <- ggplot(data=plt2df, aes(x = sourc_idk_freq, y = perc_idk,  fill =  sourc_idk_freq)) +
+  labs(y= "Percentage", x = "When data is found", title = "Frequency of using sources to find data: don't know where to find") +
+  geom_bar(stat= "identity", position = "dodge") +
+  facet_wrap(~ source_idkwhere) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank()) +
+  aes(stringr::str_wrap( sourc_idk_freq, 15),) + xlab(NULL) +
+  scale_fill_brewer(palette="Set3", name= "Frequency") + 
+  scale_y_continuous(labels = scales::percent,limits = c(0, 0.7))
+
+ggarrange(plt1, plt2, 
+          ncol = 2, nrow = 1)
+```
+
+There appears to be a greater percentage of respondents who indicated they never use consultation with research support in the don't know where and how to look for data group than the entire group. Percentage of indicating never for data specific search engines and disciplinary specific data repository increased in the don't know where and how to look for data group compared to the entire group. Percentage of using the previously mentioned sources often decreased in the don't know where and how to look for data group. 
+These changes appear to indicate that the percentage of the group who indicated their challenge to finding data included not knowing where or how to find data use targeted sources (i.e data or disciplinary specific search engines and repositories and support professionals) less than the entire respondent group, and used general search engines such as Google more. 
+
+
+Next we compare the trends in the frequency of using discipline-specific data repositories, multidisciplinary data repositories, governmental agencies and websites, and professional associations between respondents who indicated they think online tools are inadequate and the entire respondent group [note that only sources which had interpretable trends are shown in the plots below]:
+
+```{r, fig.cap = "Respondents who indicated a challenge to finding data is inadequate online tools appear to use the following sources more than the entire respondent group.", fig.height = 6, fig.width =14} 
+#excluding open response source_open
+no_tools <- research %>% 
+  dplyr::filter(find_chaltools == "Online tools are inadequate")
+
+no_tools_source <- no_tools %>% 
+  dplyr::select("responseid", "dem_exprnce", "source_multrepos", "source_discrepos", "source_gov", "source_netwk", "source_lit", "source_coderep", "source_srcheng", "source_profassc", "source_datsrcheng", "source_commrc", "source_suppt") %>%
+  pivot_longer(cols = c("source_multrepos", "source_discrepos", "source_gov", "source_netwk", "source_lit", "source_coderep", "source_srcheng", "source_profassc", "source_datsrcheng", "source_commrc", "source_suppt"), names_to = "data_source",  values_to = "frequency")
+
+no_tools_source$data_source_name <- data_source_dict[no_tools_source$data_source]
+
+# making data frame with percents all respondents
+source_all <- c("Discipline-specific data repository", "Discipline-specific data repository", "Discipline-specific data repository", "Multidisciplinary data repositories", "Multidisciplinary data repositories", "Multidisciplinary data repositories", "Government agencies and websites", "Government agencies and websites" , "Government agencies and websites" , "Professional associations", "Professional associations", "Professional associations" )
+sourc_all_freq <- c("Never", "Ocassionally", "Often", "Never", "Ocassionally", "Often", "Never", "Ocassionally", "Often", "Never", "Ocassionally", "Often")
+perc_tool_all <-c(0.1920245, 0.3981595, 0.4098160, 0.309816, 0.4748466, 0.2153374, 0.2098160,  0.4552147,  0.3349693, 0.3711656    , 0.4392638, 0.1895706 )
+
+plt1df <- data.frame(source_all, sourc_all_freq, perc_tool_all)
+
+# making data frame with percents scattered
+source_tool <- c("Discipline-specific data repository", "Discipline-specific data repository", "Discipline-specific data repository", "Multidisciplinary data repositories", "Multidisciplinary data repositories", "Multidisciplinary data repositories", "Government agencies and websites", "Government agencies and websites" , "Government agencies and websites" , "Professional associations", "Professional associations", "Professional associations" )
+sourc_tool_freq <- c("Never", "Ocassionally", "Often", "Never", "Ocassionally", "Often", "Never", "Ocassionally", "Often", "Never", "Ocassionally", "Often")
+perc_tool <-c(0.1731092,  0.4016807, 0.4252101, 0.2890756,  0.5008403, 0.2100840,  0.1798319, 0.4554622, 0.3647059, 0.3647059, 0.4605042, 0.1747899 )
+
+plt2df <- data.frame(source_tool, sourc_tool_freq, perc_tool)
+
+plt1 <- ggplot(data=plt1df, aes(x = sourc_all_freq, y = perc_tool_all,  fill = sourc_all_freq)) +
+  labs(y= "Percentage", x = "Where data is found", title = "Frequency of using sources to find data: all respondents") +
+  geom_bar(stat= "identity", position = "dodge") +
+  facet_wrap(~ source_all) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank()) +
+  aes(stringr::str_wrap(sourc_all_freq, 15),) + xlab(NULL) +
+  scale_fill_brewer(palette="Set3", name= "Frequency") + 
+  scale_y_continuous(labels = scales::percent, limits = c(0, 0.5))
+
+plt2 <- ggplot(data=plt2df, aes(x = sourc_tool_freq, y = perc_tool,  fill = sourc_tool_freq)) +
+  labs(y= "Percentage", x = "Where data is found", title = "Frequency of using sources to find data: inadequate online tools") +
+  geom_bar(stat= "identity", position = "dodge") +
+  facet_wrap(~ source_tool) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank()) +
+  aes(stringr::str_wrap(sourc_tool_freq, 15),) + xlab(NULL) +
+  scale_fill_brewer(palette="Set3", name= "Frequency") +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 0.5))
+
+ggarrange(plt1, plt2, 
+          ncol = 2, nrow = 1)
+```
+
+[Note that since the differences in the plot are slight, below is the percentages represented in the plot for a clearer comparison]
+
+Discipline specific data repository: all respondents 
+```{r} 
+round(prop.table(table(subset(combined_source, data_source ==  "source_discrepos")$frequency)), 3)
+```
+Discipline specific data repository: inadequate online tools 
+```{r} 
+round(prop.table(table(subset(no_tools_source, data_source =="source_discrepos")$frequency)), 3)
+```
+Multidisciplinary data repositories: all respondents 
+```{r} 
+round(prop.table(table(subset(combined_source, data_source == "source_multrepos")$frequency)), 3)
+```
+Multidisciplinary data repositories: inadequate online tools 
+```{r} 
+round(prop.table(table(subset(no_tools_source, data_source =="source_multrepos")$frequency)), 3)
+```
+Government agencies and websites: all respondents 
+```{r} 
+round(prop.table(table(subset(combined_source, data_source == "source_gov")$frequency)), 3)
+```
+Government agencies and websites: inadequate online tools 
+```{r} 
+round(prop.table(table(subset(no_tools_source, data_source =="source_gov")$frequency)), 3)
+```
+Professional associations: all respondents 
+```{r} 
+round(prop.table(table(subset(combined_source, data_source == "source_profassc")$frequency)), 3)
+```
+Professional associations: inadequate online tools 
+```{r} 
+round(prop.table(table(subset(no_tools_source, data_source =="source_profassc")$frequency)), 3)
+```
+
+It appears that respondents who indicated a challenge to finding data was inadequate online tools use discipline specific data repositories, multidisciplinary data repositories, government agencies and websites, and professional association more than the entire respondent group. This could point to those sources lacking adequate online tools for researchers to find data. 
+
+Note that other sources such as general search engine, data specific search engines, code repositories etc. were not included because there was very little difference in percentage of frequency of use between all respondents and those who indicated inadequate online tools as a challenge. 
+
+### Ease of finding data (Q11)
+
+We explore the ease of finding data between students and researchers. Additionally we look at the challenges the students and researchers face when finding data. 
+
+Ease of finding data for students
+```{r} 
+# isolate students and researchers from researcher data set 
+students <- research %>% 
+  dplyr::filter(dem_role == "Student")
+
+research_ppl <- research %>% 
+  dplyr::filter(dem_role == "Researcher")
+
+table(students$find_ease)
+
+round(prop.table(table(students$find_ease)), 4)
+```
+Ease of finding data for researchers 
+```{r} 
+table(research_ppl$find_ease)
+
+round(prop.table(table(research_ppl$find_ease)), 4)
+```
+
+A barplot of the levels of ease in finding data is shown below: 
+
+```{r, fig.cap="It appears that more students indicated data is somewhat challenging to find compared to researchers, 84% of students compared to 72% of researchers. However, more researchers indicated data is difficult to find, 19%, compared to students, 12%."}
+plot1 <- ggplot(students, aes(x = find_ease)) + 
+  labs(y= "Percentage", x = "Level of ease", title = "Ease of finding data: Students") +
+  geom_bar(aes(y = ..prop.., group = 1), stat="count", fill = "#80CDC1") +
+  theme(axis.ticks.x=element_blank()) +
+  aes(stringr::str_wrap(find_ease, 15),) + xlab(NULL) + 
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) 
+
+plot2 <- ggplot(research_ppl, aes(x = find_ease)) + 
+  labs(y= "Percentage", x = "Level of ease", title = "Ease of finding data: Researchers") +
+  geom_bar(aes(y = ..prop.., group = 1), stat="count",fill = "#80CDC1") +
+  theme(axis.ticks.x=element_blank(), 
+        axis.text.y = element_blank()) +
+  aes(stringr::str_wrap(find_ease, 15),) + xlab(NULL) + 
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) 
+
+ggarrange(plot1, plot2, 
+          ncol = 2, nrow = 1)
+```
+
+
+It appears that more students indicated data is somewhat challenging to find compared to researchers, 84% of students compared to 72% of researchers. However, more researchers indicated data is difficult to find, 19%, compared to students, 12%. A greater proprotion of researchers indicated finding data was easy than students. 
+
+We explore the challenges students and researchers indicated below. 
+
+#### Challenges for students and researchers 
+```{r, fig.cap="Most students and researchers indicate that data was not accessible followed by data are in many different places", fig.width = 8} 
+chal_students <- students %>% 
+  dplyr::select("responseid", "dem_exprnce", "country_region", "find_chalaccs","find_chalskill", "find_chaldistrb", "find_chaldigtl", "find_chaltools", "find_chalnetwk", "find_chaloth") %>%
+  pivot_longer(cols = c("find_chalaccs","find_chalskill", "find_chaldistrb", "find_chaldigtl", "find_chaltools", "find_chalnetwk", "find_chaloth"), names_to = "challenge",  values_to = "value") %>%
+  filter(value != 0 & value != "Not asked") 
+
+chal_researcher <- research_ppl %>% 
+  dplyr::select("responseid", "dem_exprnce", "country_region", "find_chalaccs","find_chalskill", "find_chaldistrb", "find_chaldigtl", "find_chaltools", "find_chalnetwk", "find_chaloth") %>%
+  pivot_longer(cols = c("find_chalaccs","find_chalskill", "find_chaldistrb", "find_chaldigtl", "find_chaltools", "find_chalnetwk", "find_chaloth"), names_to = "challenge",  values_to = "value") %>%
+  filter(value != 0 & value != "Not asked") 
+  
+chal1 <- ggplot(data=chal_students, aes(x = value, y = ..prop.., group = 1)) +
+  labs(y= "Percentage", x = "Challenges", title = "Challenges to find data: Students") +
+  geom_bar(stat = "count", fill = "#80CDC1") + 
+  theme(axis.ticks.x=element_blank(),
+        legend.title=element_blank(), 
+        legend.position = "none") +
+  aes(stringr::str_wrap(value, 15),) + xlab(NULL) +
+  scale_y_continuous(labels = scales::percent)
+
+chal2 <- ggplot(data=chal_researcher, aes(x = value, y = ..prop.., group = 1)) +
+  labs(y= "Percentage", x = "Challenges", title = "Challenges to find data: Researchers") +
+  geom_bar(stat = "count", fill = "#80CDC1") + 
+  theme(axis.ticks.x=element_blank(),
+        legend.title=element_blank(), 
+        legend.position = "none") +
+  aes(stringr::str_wrap(value, 15),) + xlab(NULL) +
+  scale_y_continuous(labels = scales::percent)
+
+ggarrange(chal1, chal2, 
+          ncol = 2, nrow = 1)
+```
+
+There not appear to dramatic differences in the challenges to finding data faced by students and researchers. Both the students' and researchers' greatest challenges is that data are not accessible followed by data are in many different places. Interestingly, the percentage of researchers who indicated they don't have necessary personal networks or don't know where or how to look for data is less than students. This makes sense as researchers may have more experience than students and thus would be expected to have a richer personal network and have more skills or experience in finding data. 
+
+The proportion of researchers who indicated online tools are inadequate and data are not digital is greater than students. These challenges could point resources for finding data have not kept up with the transition of data to a digital format or on platform online. 
+
+We then look at the frequency of using certain sources to find data.
+
+### Data source (Q7)
+
+```{r, echo=FALSE, fig.cap= "Academic literature and general search engines appear to be the most popular data sources with nearly 80% of respondents indicating they often use academic literature and nearly 70% of respondents indicating they often use general search engines. Code repositories and commercial sources appear to be the least popular data sources with just under 80% and just under 70% of respondents indicating they never use those sources respectively.", fig.width = 15,fig.height = 7} 
+source_name <- c("Multidisciplinary data repositories", "Multidisciplinary data repositories", "Multidisciplinary data repositories",
+                 "Discipline-specific data repositories", "Discipline-specific data repositories", "Discipline-specific data repositories", 
+                "Governmental agencies and websites", "Governmental agencies and websites", "Governmental agencies and websites", 
+                "Personal networks (e.g. colleagues, peers)", "Personal networks (e.g. colleagues, peers)", "Personal networks (e.g. colleagues, peers)", 
+                "Academic literature (e.g. journal articles)", "Academic literature (e.g. journal articles)", "Academic literature (e.g. journal articles)", 
+                "Code repository (e.g. GitHub)", "Code repository (e.g. GitHub)", "Code repository (e.g. GitHub)", 
+                "General search engines (e.g. Google)", "General search engines (e.g. Google)", "General search engines (e.g. Google)", 
+                "Professional associations", "Professional associations", "Professional associations", 
+                "Data specific search engines", "Data specific search engines", "Data specific search engines", 
+                "Commercial sources", "Commercial sources", "Commercial sources", 
+                "Consultation with research support professionals", "Consultation with research support professionals", "Consultation with research support professionals")
+source_freq <- c("Never", "Occasionally", "Often", 
+                 "Never", "Occasionally", "Often",
+                 "Never", "Occasionally", "Often",
+                 "Never", "Occasionally", "Often",
+                 "Never", "Occasionally", "Often",
+                 "Never", "Occasionally", "Often",
+                 "Never", "Occasionally", "Often", 
+                 "Never", "Occasionally", "Often",
+                 "Never", "Occasionally", "Often",
+                 "Never", "Occasionally", "Often",
+                 "Never", "Occasionally", "Often")
+source_perc <- c( 0.3098160, 0.4748466, 0.2153374, 
+                  0.1920245, 0.3981595, 0.4098160,
+                  0.2098160, 0.4552147, 0.3349693,
+                  0.1515337, 0.5349693, 0.3134969, 
+                  0.0607362, 0.1944785, 0.7447853,
+                  0.65337423, 0.25337423, 0.09325153, 
+                  0.106135, 0.297546, 0.596319,
+                  0.3711656, 0.4392638, 0.1895706, 
+                  0.3846626, 0.3828221, 0.2325153, 
+                  0.66073620, 0.29570552, 0.04355828, 
+                  0.4208589, 0.4644172, 0.1147239)
+
+source_df <- data.frame(source_name, source_freq, source_perc)
+
+ggplot(data=source_df, aes(x = source_freq, y = source_perc,  fill = source_freq)) +
+  labs(y= "Percentage", x = "When data is found", title = "Frequency of using sources to find data") +
+  geom_bar(stat= "identity", position = "dodge") + 
+  facet_wrap(~ source_name) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank()) +
+  aes(stringr::str_wrap(source_freq, 15),) + xlab(NULL) + 
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette="Set3", name= "Frequency")  
+
+
+```
+
+We now explore the frequency of use of certain data sources by respondent experience level [note that some sources are omitted because there was no interesting difference between the trends in use of all the respondents compared to respondents of different experience levels].
+
+#### Frequency of using Academic Literature to find data:
+```{r, echo=FALSE,fig.cap="As experience level increases, the frequency of using Academic Literature increases as well with under 60% of respondents in the 0-5 group indicating they often use Academic Literature to nearly 80% of respondents in the 31+ group."} 
+# Academic literature
+lit_exprnce <-c("0-5", "0-5","0-5",
+                "6-15", "6-15", "6-15", 
+                "16-30", "16-30", "16-30",
+                "31+", "31+", "31+")
+
+lit_freq <- c("Never","Occassionally", "Often", 
+              "Never","Occassionally", "Often", 
+              "Never","Occassionally", "Often", 
+              "Never","Occassionally", "Often")
+lit_exprnce_perc <-c(0.09326425, 0.21761658, 0.68911917, 
+                     0.04732824, 0.19694656, 0.75572519, 
+                    0.06693712, 0.20283976, 0.73022312, 
+                    0.05882353, 0.15916955, 0.78200692)
+                      
+lit_exprnce_df <- data.frame(lit_exprnce, lit_freq, lit_exprnce_perc)
+lit_exprnce_df$lit_exprnce <- factor(lit_exprnce_df$lit_exprnce, levels = c("0-5", "6-15", "16-30", "31+"),
+                              ordered = TRUE)
+
+ggplot(data=lit_exprnce_df, aes(x = lit_freq, y = lit_exprnce_perc, fill = lit_freq)) +
+  labs(y= "Percentage", x = "When data is found", title = "Frequency of using Academic Literature to find data") +
+  geom_bar(stat= "identity", position = "dodge") + 
+  facet_wrap(~ lit_exprnce) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank()) +
+  aes(stringr::str_wrap(lit_freq, 15),) + xlab(NULL) + 
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette="Set3", name = "Frequency")  
+```
+
+#### Frequency of using Consultation with Research Support to find data: 
+```{r, echo=FALSE, fig.cap="Respondents in the 0-5 and 6-15 experience groups had similar percentages indicate they never or occasionally use Consultation with Research Support to find data while the percentage of respondents in the 16-30 and 31+ groups had a greater percentage indicate they occasionally use this source to find data than the percentage indicating they never use it."}
+supp_exprnce <-c("0-5", "0-5","0-5",
+                "6-15", "6-15", "6-15", 
+                "16-30", "16-30", "16-30",
+                "31+", "31+", "31+")
+
+supp_freq <- c("Never","Occassionally", "Often", 
+              "Never","Occassionally", "Often", 
+              "Never","Occassionally", "Often", 
+              "Never","Occassionally", "Often")
+supp_exprnce_perc <-c(0.4507772, 0.4248705, 0.1243523, 
+                      0.45038168, 0.45190840, 0.09770992, 
+                      0.3995943, 0.4766734, 0.1237323, 
+                      0.3702422, 0.4982699, 0.1314879)
+                      
+supp_exprnce_df <- data.frame(supp_exprnce, supp_freq, supp_exprnce_perc)
+supp_exprnce_df$supp_exprnce <- factor(supp_exprnce_df$supp_exprnce, levels = c("0-5", "6-15", "16-30", "31+"),
+                              ordered = TRUE)
+
+ggplot(data=supp_exprnce_df, aes(x = supp_freq, y = supp_exprnce_perc, fill = supp_freq)) +
+  labs(y= "Percentage", x = "When data is found", title = "Frequency of using Consultation With Research Support to find data") +
+  geom_bar(stat= "identity", position = "dodge") + 
+  facet_wrap(~ supp_exprnce) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank()) +
+  aes(stringr::str_wrap(supp_freq, 15),) + xlab(NULL) + 
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette="Set3", name = "Frequency")  
+```
+
+#### Frequency of using General Search Engine (i.e. Google) to find data 
+```{r, echo=FALSE, fig.cap="The greatest percentage of respondents who indicate they often use General Search Engines (e.g Google) to find data occurred in the 0-5 group while the percentage of respondents in other groups who often use this source remain relatively the same at just under 60%."} 
+google_exprnce <-c("0-5", "0-5","0-5",
+                "6-15", "6-15", "6-15", 
+                "16-30", "16-30", "16-30",
+                "31+", "31+", "31+")
+
+google_freq <- c("Never","Occassionally", "Often", 
+              "Never","Occassionally", "Often", 
+              "Never","Occassionally", "Often", 
+              "Never","Occassionally", "Often")
+google_exprnce_perc <-c(0.1036269, 0.2331606, 0.6632124, 
+                        0.09618321, 0.31145038, 0.59236641, 
+                        0.1237323, 0.2961460, 0.5801217, 
+                        0.1003460, 0.3114187, 0.5882353)
+                      
+google_exprnce_df <- data.frame(google_exprnce, google_freq, google_exprnce_perc)
+google_exprnce_df$google_exprnce <- factor(google_exprnce_df$google_exprnce, levels = c("0-5", "6-15", "16-30", "31+"),
+                              ordered = TRUE)
+
+ggplot(data=google_exprnce_df, aes(x = google_freq, y = google_exprnce_perc, fill = google_freq)) +
+  labs(y= "Percentage", x = "When data is found", title = "Frequency of using General Search Engines to find data") +
+  geom_bar(stat= "identity", position = "dodge") + 
+  facet_wrap(~ google_exprnce) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank()) +
+  aes(stringr::str_wrap(google_freq, 15),) + xlab(NULL) + 
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette="Set3", name = "Frequency")  
+```
+
+It appears that the frequency of using these sources to find data broken down by experience group does not differ greatly from the trends across all respondents. For using Academic Literature, the percentage of respondents who indicated they often use the source increased with experience level perhaps due to the level of expertise needed to understand academic literature. For General Search Engines (e.g. Google), the percentage of respondents who indicated they often use the source decreases with the increase in experience level perhaps due to the knowledge of more effective and reliable sources such as academic literature or discipline specific resources. For Consultation with Research Support, the percentage of respondents who indicate they occasionally use this source to find data increases with experience level while, similarly, respondents who indicated they never use this source decreases as experience increases. This may be due to greater accessibility to support professionals among more experienced respondents, and more confidence in seeking out professional support. 
+
+We investigate trends in how data is used below. 
+
+
+### Data Use (Q4)
+```{r, fig.cap="Data is most commonly used for new studies followed by new projects and teaching and training. Excluding the variable other, data is used least for calibrating instruments or models.", fig.width = 7,fig.height = 5}
+
+ggplot(data=combined_use, aes(x = value, y = ..prop.., group = 1)) +
+  labs(y= "Percentage", x = "Usage", title = "What is data used for?") +
+  geom_bar(stat = "count", position = "dodge", fill = "#80CDC1") + 
+  theme(axis.ticks.x=element_blank(),
+        legend.title=element_blank(), 
+        legend.position = "none", 
+        panel.spacing.x = unit(6, "mm"), 
+        axis.text.x = element_text(angle=90, vjust=0.5)) +
+  aes(stringr::str_wrap(value, 45),) + xlab(NULL) +
+  scale_y_continuous(labels = scales::percent) + 
+  coord_flip()
+```
+
+Note that since data is most commonly used for new studies followed by preparing for a new project or proposal and then to generate new ideas, it appears data is mostly used to create or discover new things. This could be taken into account when interpreting the analyses on data sharing and reusing later in the report. 
+
+We then split data use by respondent discipline group. 
+
+#### Data use by Respondent discipline 
+```{r, fig.cap="Using data for the basis of a new study appears to be the most popular way to use data across all discipline groups.", fig.width = 7,fig.height = 4}
+# merge discipline and use
+merge_disc_use <- merge(combined_use, combined_disc, by = "responseid")
+ 
+#set color palette
+nb.cols <- 14
+mycolors <- colorRampPalette(brewer.pal(8, "Set3"))(nb.cols)
+
+ggplot(data=merge_disc_use, aes(x = value, y = ..prop.., group = 1, fill = factor(..x..))) +
+  labs(y= "Percentage", x = "Data Need", title = "How is data used by grouped discipline") +
+  geom_bar(stat = "count") + 
+  facet_wrap(~disc_group) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  scale_y_continuous(labels = scales::percent) + 
+  aes(stringr::str_wrap(value, 40),) + xlab(NULL)  + 
+  scale_fill_manual(values = mycolors, name = "Data use", labels = c("Basis for new study", "Benchmarking", "Calibrate instruments or models", "Comapre multiple datasets to find patterns", "Experiment with new methods or techniques", "Generate new ideas", "Identify trends or make predictions", "Integrate with other data to create new dataset", "Make summarizations, visualizations or analysis tools", "Model, algorithm or system inputs", "Other", "Prepare for new project or proposal", "Teaching", "Verify own data"))
+```
+
+Across discipline groups, data is used most as basis for new study comprising of the  highest percentage of respondents in the Humanities and Arts discipline at just over 15%. The second highest percentage of respondents in Natural Science discipline group indicated they use data to verify their own data perhaps signaling the importance of repeated findings to validate the accuracy of researcher's data. For respondents in Healthcare and Medicine and Multidisciplinary groups, the second highest percentage indicated using data to prepare for new project or proposal while the second highest percentage of respondents in the CS and Engineering group indicated using data for models, algorithms and system inputs and experiment with new methods or techniques. 
+
+### Respondent perception of data sharing and reusing (D5/D6)
+
+We explore the respondents' personal perception of data sharing and reusing below: 
+
+Personal perception of data sharing 
+```{r} 
+table(research$dem_sharself)
+
+round(prop.table(table(research$dem_sharself)), 4)
+```
+
+Personal perception of data reusing 
+```{r} 
+table(research$dem_reuseself)
+
+round(prop.table(table(research$dem_reuseself)), 4)
+```
+
+#### Respondents who discourage data sharing
+
+We now investigate deeper into respondents who indicate their perception of data sharing is "somewhat discourage" or "strongly discourage" data sharing. 
+
+Of the 40 respondents who indicated their perception of data sharing is somewhat or strongly discourage, the geographical region of the respondents are shown below: 
+
+```{r} 
+stronglydiscourage <- research %>%
+  dplyr::filter(dem_sharself == "Data sharing is somewhat discouraged" | dem_sharself == "Data sharing is strongly discouraged")
+
+round(prop.table(table(research$country_region)), 2)
+round(prop.table(table(stronglydiscourage$country_region)), 2)
+```
+
+There is a greater percentage of respondents who indicated they discouraged data sharing from the Middle East (15%) and Africa (10%) that the percentage of respondents from those regions out of the entire respondent group (4% and 5% respectively). This could potentially indicate regional differences in perception of data sharing. 
+
+Below is the perception of data sharing in larger scales such as among the work group, disciplinary community and at an organizational level:
+
+```{r,  fig.width = 8} 
+combined_share <- research %>% 
+  dplyr::select("responseid", "dem_exprnce", "country_region", "dem_sharself", "dem_shargrp", "dem_shardisc", "dem_sharorg", "dem_reuseself", "dem_reusegrp", "dem_reusedisc", "dem_reuseorg") %>% 
+  pivot_longer(cols = c("dem_sharself", "dem_shargrp", "dem_shardisc", "dem_sharorg"), names_to = "data_share", values_to = "value") %>%
+  filter(value != 0) 
+
+sharing <- stronglydiscourage %>% 
+  dplyr::select("responseid", "dem_exprnce", "country_region", "dem_shargrp", "dem_shardisc", "dem_sharorg", "dem_reuseself", "dem_reusegrp", "dem_reusedisc", "dem_reuseorg") %>% 
+  pivot_longer(cols = c("dem_shargrp", "dem_shardisc", "dem_sharorg"), names_to = "data_share", values_to = "value") %>% 
+  filter(value != 0)
+
+share_dict <- c("dem_sharself" = "Self", "dem_shardisc" = "Disciplinary community", "dem_shargrp" = "Work group", "dem_sharorg" = "Organization")
+
+sharing$perception_level <- share_dict[sharing$data_share]
+
+combined_share$perception_level <- share_dict[combined_share$data_share]
+
+plot1 <- ggplot(subset(combined_share, perception_level == "Disciplinary community" | perception_level == "Work group" | perception_level == "Organization"), aes(x = value)) + 
+  geom_bar(stat = "count", aes(y = ..prop.., group = perception_level, fill = factor(..x..))) + 
+  labs( y = "Percentage", title = "Levels of data sharing: All respondents") + 
+  facet_wrap(~ perception_level) +
+  aes(stringr::str_wrap(value, 15),) + xlab(NULL) + 
+  scale_y_continuous(labels = scales::percent) + 
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  scale_fill_brewer(palette="Set3", name = "Levels of sharing",  labels = c("Neither encouraged nor discouraged", "Somewhat discouraged", "Somewhat encouraged", "Strongly discouraged", "Strongly encouraged", "Don't know/not applicable"))  
+
+plot2 <- ggplot(sharing, aes(x = value)) + 
+  geom_bar(stat = "count", aes(y = ..prop.., group = perception_level, fill = factor(..x..))) + 
+  labs( y = "Percentage", title = "Levels of data sharing: Discourage data sharing") + 
+  facet_wrap(~ perception_level) +
+  aes(stringr::str_wrap(value, 15),) + xlab(NULL) + 
+  scale_y_continuous(labels = scales::percent) + 
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  scale_fill_brewer(palette="Set3", name = "Levels of sharing",  labels = c("Neither encouraged nor discouraged", "Somewhat discouraged", "Somewhat encouraged", "Strongly discouraged", "Strongly encouraged", "Don't know/not applicable"))   
+
+ggarrange(plot1, plot2, 
+          ncol = 2, nrow = 1)
+```
+
+It appears that the percentage of respondents who discourage data sharing among disciplinary community, organization or at work are dramatically lower in the entire survey group compared to just respondents who indicated they discourage data sharing. This is not surprising but the biggest difference occurring in the work group may indicate that the work those respondents engage in heavily influence their own perception of data sharing. Perhaps these respondents deal with sensitive information for their work, working for government agencies or secretive companies. 
+
+Below is the perception of data reuse on the same levels: work group, disciplinary community and at an organizational level. 
+
+```{r} 
+reusing <- stronglydiscourage %>% 
+  dplyr::select("responseid", "dem_exprnce", "country_region", "dem_reuseself", "dem_reusegrp", "dem_reusedisc", "dem_reuseorg") %>% 
+  pivot_longer(cols = c("dem_reuseself", "dem_reusegrp", "dem_reusedisc", "dem_reuseorg"), names_to = "data_reuse", values_to = "value") %>% 
+  filter(value != 0) 
+
+reuse_dict <- c("dem_reuseself" = "Self", "dem_reusedisc" = "Disciplinary community", "dem_reusegrp" = "Work group", "dem_reuseorg" = "Organization")
+
+reusing$perception_level <- reuse_dict[reusing$data_reuse]
+
+combined_reuse$perception_level <- reuse_dict[combined_reuse$data_reuse]
+
+plot1 <- ggplot(combined_reuse, aes(x = value)) + 
+  geom_bar(stat = "count", aes(y = ..prop.., group = perception_level, fill = factor(..x..))) + 
+  labs( y = "Percentage", title = "Levels of data reusing: All respondents") + 
+  facet_wrap(~ perception_level) +
+  aes(stringr::str_wrap(value, 15),) + xlab(NULL) + 
+  scale_y_continuous(labels = scales::percent, limits = c(0, 0.5)) + 
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  scale_fill_brewer(palette="Set3", name = "Levels of sharing",  labels = c("Neither encouraged nor discouraged", "Somewhat discouraged", "Somewhat encouraged", "Strongly discouraged", "Strongly encouraged", "Don't know/not applicable"))  
+
+plot2 <- ggplot(reusing, aes(x = value)) + 
+  geom_bar(stat = "count", aes(y = ..prop.., group = perception_level, fill = factor(..x..))) + 
+  labs( y = "Percentage", title = "Levels of data reusing: Discourage data sharing") + 
+  facet_wrap(~ perception_level) +
+  aes(stringr::str_wrap(value, 15),) + xlab(NULL) + 
+  scale_y_continuous(labels = scales::percent,limits = c(0, 0.5)) + 
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  scale_fill_brewer(palette="Set3", name = "Levels of sharing",  labels = c("Neither encouraged nor discouraged", "Somewhat discouraged", "Somewhat encouraged", "Strongly discouraged", "Strongly encouraged", "Don't know/not applicable"))   
+
+
+ggarrange(plot1, plot2, 
+          ncol = 2, nrow = 1)
+```
+
+Although there are higher percentages of respondents is the discourage data sharing group who indicated they discourage data reuse across all levels, more respondents indicated they somewhat encourage or neither encourage nor discourage data reuse compared to the majority of respondents indicating they discourage data sharing. This could indicate that this group of respondents are primarily concerned about sharing data, even more specifically, they perceive their work group as the least enthusiastic about sharing data.
+
+### Perception of sharing and reusing: Mean score (D5/D6)
+
+
+```{r, include = FALSE,echo=FALSE}
+
+research$dem_exprnce <- factor(research$dem_exprnce, levels = c("0-5", "6-15", "16-30", "31+"), ordered = TRUE)
+
+
+dem_exp.vs.share <- research %>% 
+  dplyr::filter(dem_shared == "No") %>%
+  dplyr::select("responseid", "dem_exprnce", (starts_with("dem_shar") | starts_with("dem_reuse") )& ! "dem_shared") %>%
+  pivot_longer(starts_with("dem_shar") , names_to = "Sharing", values_to = "sharing_tendency")
+
+dem_exp.vs.share.reuse<- dem_exp.vs.share %>%
+  pivot_longer(starts_with("dem_reuse"), names_to = "Reuse", values_to = "reuse_tendency") %>%
+  filter((Sharing == "dem_sharself" & Reuse == "dem_reuseself")|
+           (Sharing == "dem_sharorg" & Reuse == "dem_reuseorg")|
+           (Sharing == "dem_shardisc" & Reuse == "dem_reusedisc")|
+           (Sharing == "dem_shargrp" & Reuse == "dem_reusegrp"))
+
+
+transform_reuse_data <- function(col) {
+  if (class(col) == "character"){
+    recode(col, "Data reusing is strongly encouraged" = 5,
+         "Data reusing is somewhat encouraged" = 4,
+         "Data reusing is neither encouraged nor discouraged" = 3,
+         "Data reusing is somewhat discouraged" = 2,
+         "Data reusing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0)         
+  }
+
+}
+
+transform_sharing_data <- function(col) {
+  recode(col, "Data sharing is strongly encouraged" = 5,
+         "Data sharing is somewhat encouraged" = 4,
+         "Data sharing is neither encouraged nor discouraged" = 3,
+         "Data sharing is somewhat discouraged" = 2,
+         "Data sharing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0)  
+}
+
+dem_exp.vs.share.reuse$reuse_tendency <- transform_reuse_data(dem_exp.vs.share.reuse$reuse_tendency)
+dem_exp.vs.share.reuse$sharing_tendency <- transform_sharing_data(dem_exp.vs.share.reuse$sharing_tendency)
+
+dem_exp.vs.share.reuse <- mutate(dem_exp.vs.share.reuse,
+       difference = sharing_tendency - reuse_tendency,
+       average = (sharing_tendency+reuse_tendency)/2)
+
+
+
+dem_exp.vs.share.reuse$Sharing <- recode(dem_exp.vs.share.reuse$Sharing, 
+       "dem_sharself" = "self",
+         "dem_shargrp" = "group",
+         "dem_shardisc" = "disc",
+         "dem_sharorg" = "org") 
+
+share_reuse_df <- dem_exp.vs.share.reuse %>%
+  rename("Type" = "Sharing") %>%
+  select(!"Reuse")
+```
+
+
+```{r, include = FALSE,echo=FALSE}
+trial.df <- research
+
+trial.df$dem_sharself<-recode(trial.df$dem_sharself,
+  "Data sharing is strongly encouraged" = 5,
+         "Data sharing is somewhat encouraged" = 4,
+         "Data sharing is neither encouraged nor discouraged" = 3,
+         "Data sharing is somewhat discouraged" = 2,
+         "Data sharing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0)
+  trial.df$dem_sharorg<-recode(trial.df$dem_sharorg,
+  "Data sharing is strongly encouraged" = 5,
+         "Data sharing is somewhat encouraged" = 4,
+         "Data sharing is neither encouraged nor discouraged" = 3,
+         "Data sharing is somewhat discouraged" = 2,
+         "Data sharing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0)
+  trial.df$dem_shardisc<-recode(trial.df$dem_shardisc,
+  "Data sharing is strongly encouraged" = 5,
+         "Data sharing is somewhat encouraged" = 4,
+         "Data sharing is neither encouraged nor discouraged" = 3,
+         "Data sharing is somewhat discouraged" = 2,
+         "Data sharing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0)
+  trial.df$dem_shargrp<-recode(trial.df$dem_shargrp,
+  "Data sharing is strongly encouraged" = 5,
+         "Data sharing is somewhat encouraged" = 4,
+         "Data sharing is neither encouraged nor discouraged" = 3,
+         "Data sharing is somewhat discouraged" = 2,
+         "Data sharing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0)
+  trial.df$dem_reuseself<-recode(trial.df$dem_reuseself, 
+        "Data reusing is strongly encouraged" = 5,
+         "Data reusing is somewhat encouraged" = 4,
+         "Data reusing is neither encouraged nor discouraged" = 3,
+         "Data reusing is somewhat discouraged" = 2,
+         "Data reusing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0)  
+  trial.df$dem_reusegrp<-recode(trial.df$dem_reusegrp, 
+        "Data reusing is strongly encouraged" = 5,
+         "Data reusing is somewhat encouraged" = 4,
+         "Data reusing is neither encouraged nor discouraged" = 3,
+         "Data reusing is somewhat discouraged" = 2,
+         "Data reusing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0)
+  trial.df$dem_reusedisc<-recode(trial.df$dem_reusedisc, 
+        "Data reusing is strongly encouraged" = 5,
+         "Data reusing is somewhat encouraged" = 4,
+         "Data reusing is neither encouraged nor discouraged" = 3,
+         "Data reusing is somewhat discouraged" = 2,
+         "Data reusing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0) 
+  trial.df$dem_reuseorg<-recode(trial.df$dem_reuseorg, 
+        "Data reusing is strongly encouraged" = 5,
+         "Data reusing is somewhat encouraged" = 4,
+         "Data reusing is neither encouraged nor discouraged" = 3,
+         "Data reusing is somewhat discouraged" = 2,
+         "Data reusing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0)
+  
+  trial.df$dem_sharself = as.numeric(trial.df$dem_sharself)
+  trial.df$dem_sharorg = as.numeric(trial.df$dem_sharorg)
+  trial.df$dem_shardisc = as.numeric(trial.df$dem_shardisc)
+  trial.df$dem_shargrp = as.numeric(trial.df$dem_shargrp)
+  
+  trial.df$dem_reuseself = as.numeric(trial.df$dem_reuseself)
+  trial.df$dem_reuseorg = as.numeric(trial.df$dem_reuseorg)
+  trial.df$dem_reusedisc = as.numeric(trial.df$dem_reusedisc)
+  trial.df$dem_reusegrp = as.numeric(trial.df$dem_reusegrp)
+
+  mutate(trial.df,
+      overall_share = dem_sharself + dem_shargrp + dem_shardisc + dem_sharorg,
+      overall_reuse = dem_reuseself + dem_reusegrp + dem_reusedisc + dem_reuseorg,
+       sharing.against.reuse = overall_share - overall_reuse,
+       average = (overall_share + overall_reuse)/2)
+
+  
+trial.df <- trial.df %>%
+  dplyr::select("responseid", "dem_exprnce", (starts_with("dem_shar") | starts_with("dem_reuse"))) %>%
+  pivot_longer(starts_with("dem_shar") & !"dem_shared", names_to = "Sharing", values_to = "sharing_tendency")
+
+trial.df<- trial.df %>%
+  pivot_longer(starts_with("dem_reuse"), names_to = "Reuse", values_to = "reuse_tendency") %>%
+  filter((Sharing == "dem_sharself" & Reuse == "dem_reuseself")|
+           (Sharing == "dem_shared" & Reuse == "dem_reuseself")|
+           (Sharing == "dem_sharorg" & Reuse == "dem_reuseorg")|
+           (Sharing == "dem_shardisc" & Reuse == "dem_reusedisc")|
+           (Sharing == "dem_shargrp" & Reuse == "dem_reusegrp"))
+
+
+```
+
+
+```{r cleaning for better usage, include = FALSE,echo=FALSE}
+
+base_dataset <- research
+
+  base_dataset$dem_sharself<-recode(base_dataset$dem_sharself,
+  "Data sharing is strongly encouraged" = 5,
+         "Data sharing is somewhat encouraged" = 4,
+         "Data sharing is neither encouraged nor discouraged" = 3,
+         "Data sharing is somewhat discouraged" = 2,
+         "Data sharing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0)
+  base_dataset$dem_sharorg<-recode(base_dataset$dem_sharorg,
+  "Data sharing is strongly encouraged" = 5,
+         "Data sharing is somewhat encouraged" = 4,
+         "Data sharing is neither encouraged nor discouraged" = 3,
+         "Data sharing is somewhat discouraged" = 2,
+         "Data sharing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0)
+  base_dataset$dem_shardisc<-recode(base_dataset$dem_shardisc,
+  "Data sharing is strongly encouraged" = 5,
+         "Data sharing is somewhat encouraged" = 4,
+         "Data sharing is neither encouraged nor discouraged" = 3,
+         "Data sharing is somewhat discouraged" = 2,
+         "Data sharing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0)
+  base_dataset$dem_shargrp<-recode(base_dataset$dem_shargrp,
+  "Data sharing is strongly encouraged" = 5,
+         "Data sharing is somewhat encouraged" = 4,
+         "Data sharing is neither encouraged nor discouraged" = 3,
+         "Data sharing is somewhat discouraged" = 2,
+         "Data sharing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0)
+
+  base_dataset$dem_reuseself<-recode(base_dataset$dem_reuseself, 
+        "Data reusing is strongly encouraged" = 5,
+         "Data reusing is somewhat encouraged" = 4,
+         "Data reusing is neither encouraged nor discouraged" = 3,
+         "Data reusing is somewhat discouraged" = 2,
+         "Data reusing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0)  
+  base_dataset$dem_reusegrp<-recode(base_dataset$dem_reusegrp, 
+        "Data reusing is strongly encouraged" = 5,
+         "Data reusing is somewhat encouraged" = 4,
+         "Data reusing is neither encouraged nor discouraged" = 3,
+         "Data reusing is somewhat discouraged" = 2,
+         "Data reusing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0)
+  base_dataset$dem_reusedisc<-recode(base_dataset$dem_reusedisc, 
+        "Data reusing is strongly encouraged" = 5,
+         "Data reusing is somewhat encouraged" = 4,
+         "Data reusing is neither encouraged nor discouraged" = 3,
+         "Data reusing is somewhat discouraged" = 2,
+         "Data reusing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0) 
+  base_dataset$dem_reuseorg<-recode(base_dataset$dem_reuseorg, 
+        "Data reusing is strongly encouraged" = 5,
+         "Data reusing is somewhat encouraged" = 4,
+         "Data reusing is neither encouraged nor discouraged" = 3,
+         "Data reusing is somewhat discouraged" = 2,
+         "Data reusing is strongly discouraged" = 1,
+         "Don't know/ Not applicable" = 0)
+  
+  base_dataset$dem_sharself = as.numeric(base_dataset$dem_sharself)
+  base_dataset$dem_sharorg = as.numeric(base_dataset$dem_sharorg)
+  base_dataset$dem_shardisc = as.numeric(base_dataset$dem_shardisc)
+  base_dataset$dem_shargrp = as.numeric(base_dataset$dem_shargrp)
+  
+  base_dataset$dem_reuseself = as.numeric(base_dataset$dem_reuseself)
+  base_dataset$dem_reuseorg = as.numeric(base_dataset$dem_reuseorg)
+  base_dataset$dem_reusedisc = as.numeric(base_dataset$dem_reusedisc)
+  base_dataset$dem_reusegrp = as.numeric(base_dataset$dem_reusegrp)
+
+  mutate(base_dataset,
+      overall_share = dem_sharself + dem_shargrp + dem_shardisc + dem_sharorg,
+      overall_reuse = dem_reuseself + dem_reusegrp + dem_reusedisc + dem_reuseorg,
+       sharing.against.reuse = overall_share - overall_reuse,
+       average = (overall_share + overall_reuse)/2)
+  
+  tree_df <- base_dataset
+#MUTATE add data
+mutated_tree_df <- mutate(tree_df,
+      overall_share = dem_sharself + dem_shargrp + dem_shardisc + dem_sharorg,
+      overall_reuse = dem_reuseself + dem_reusegrp + dem_reusedisc + dem_reuseorg,
+       sharing.against.reuse = overall_share - overall_reuse,
+       average = (overall_share + overall_reuse)/2)
+
+
+```
+
+```{r,echo=FALSE,include = FALSE}
+
+disc_list <- grepl("disc_", colnames(base_dataset), fixed=TRUE)
+
+  for(i in 1:length(disc_list)) {   # for-loop over columns
+    if (disc_list[i]){
+      base_dataset[i]<-if_else(base_dataset[i] == "0", 0, 1, 0)
+    }
+  }
+
+base_dataset <- base_dataset %>%
+  mutate(
+    disc_total = disc_agricul+ disc_artshuman+disc_astronom+disc_biochem+disc_biological+disc_busin+ disc_chemeng+ disc_chem+ disc_compsci+ disc_decisionsci+ disc_dentist+ disc_earthplanet+ disc_econ+ disc_energy+ disc_engtech+ disc_environ+ disc_healthprof+ disc_immun+ disc_matlsci+ disc_math+ disc_med+ disc_multi+ disc_neuro+ disc_nurs+ disc_pharma+ disc_physics+ disc_psych+ disc_socsci+ disc_vet+ disc_infosci+ disc_other
+  )
+
+```
+
+```{r,echo=FALSE,include = FALSE}
+disc_vals.df <- base_dataset #RESET - manipulation
+findchal_list <- grepl("find_chal", colnames(disc_vals.df), fixed = TRUE)
+for(i in 1:length(findchal_list)) {   # for-loop over columns
+    if (findchal_list[i]){
+      disc_vals.df[i]<-if_else(disc_vals.df[i] == "0" | disc_vals.df[i] == "Not asked" , 0, 1, 0)
+    }
+  }
+
+disc_vals.df <- disc_vals.df %>%
+  mutate( total_chal =  find_chalaccs  + find_chalskill  +  find_chaldistrb  +  find_chaldigtl  +  find_chaltools  +  find_chalnetwk +  find_chaloth,
+      overall_share = dem_sharself + dem_shargrp + dem_shardisc + dem_sharorg,
+      overall_reuse = dem_reuseself + dem_reusegrp + dem_reusedisc + dem_reuseorg,
+       sharing.against.reuse = overall_share - overall_reuse,
+      avg_share = (dem_sharself + dem_shargrp + dem_shardisc + dem_sharorg)/4,
+      avg_reuse = (dem_reuseself + dem_reusegrp + dem_reusedisc + dem_reuseorg)/4,
+       avg_share_reuse = (overall_share + overall_reuse)/2)
+
+main.df<-disc_vals.df #GOOD DATASET!
+```
+                
+#### Overview of the factors
+To begin we will be exploring 4 different factors. The first 2 falls under perception of reuse and sharing, while the next two are variables that are transformed from given data. 
+
+1.`avg_share` (numerical) refers to the mean share across 4 types of sharing for each respondents.
+
+2.`avg_reuse` (numerical) refers to the mean reuse across 4 types of reuse for each respondents.
+
+3.`disc_total`(numerical) refers to the the total number of discipline reported by each individual, it is to be taken as a proxy measure of how multidisciplinary one's work might be. It is a numerical value from 1 to 20.
+
+4.`total_chal` (numerical) refers to the total number of challenges reported by individuals when finding data. For each challenges, they are reported a "1" for "Yes" and "0" for "No". It is then summed up under a new numerical variable, "total_chal".
+
+
+#### Classification Methods for Demographics
+
+There are many interesting and important demographics that can be explored. In this section, we will only be focused on a few aspects of demographics.
+
+1. **Role of respondents** (`dem_role`) - Researchers, Students. We will be focusing on two primary group of respondents, as they are most relevant to our research questions and nature of work, given that we are helping our clients at CMU Library with researchers and students
+
+2. **Experience group** (`dem_exprnce`) - These are the 4 experience group provided as used earlier.
+ 
+3. **Shared (Y/N)** (`dem_shared`) - It refers to whether the respondents have indicated that they have shared data. "Yes" being classified as "sharers" and "No" as "non-sharers".
+
+#### Scatterplot Matrix
+To begin, we plot the 4 numerical variables in a scatterplot matrix to identify some of the interesting relationships we might investigate in detail further.
+
+```{r scatterplot matrix of share, reuse, disc and chal,echo=FALSE}
+main.df %>%
+  #filter(dem_role == "Researcher" | dem_role == "Student") %>%
+  select(c("avg_share","avg_reuse","disc_total","total_chal")) %>%
+  pairs()
+
+```
+
+
+##### Average Reuse vs Average Share Across all population
+
+We explore the perception of data sharing via a mean "score" by assigning each answer choice a value from 0 to 5 as follows: 
+
+Data sharing is strongly encouraged = 5 
+
+Data sharing is somewhat encouraged = 4 
+
+Data sharing is neither encouraged nor discouraged = 3 
+
+Data sharing is somewhat discouraged = 2 
+
+Data sharing is strongly discouraged = 1 
+
+Don't know/ Not applicable = 0
+
+Firstly, we investigate the relationship of average reuse vs average sharing across the entire data set.
+
+```{r, avg_reuse vs avg_share ,echo=FALSE}
+
+ggplot(data=main.df, aes(x = avg_share, y =avg_reuse, group = 1)) +
+  geom_bin2d(binwidth = 0.5) + 
+  scale_fill_continuous(low="lavenderblush", high="red") +
+  labs(title = "Average Reuse vs Average Share",  subtitle = "average score of all 4 categories (disc,grp,org,self)", x = "average sharing" , y = "average reuse", caption = "Overview of average scores")
+```
+**Observation**
+As seen above, as the average sharing increases, the average reuse indicated by respondents also increases. This could be useful for us to do a correlation test using linear regression later.
+
+Diving deeper into different methods of analyzing the data.
+
+1. Roles of the respondents. Focused primarily on Researcher and Student
+
+#### Roles - (Researcher & Student)
+To begin with the roles classification, we will explore the following after classifying their type of role.
+(1) how they view sharing personally.
+(2) how they view sharing across disciplines.
+(3) How they view reuse personally.
+(4) How they view reuse across disciplines
+
+##### Avg Reuse vs Avg Share
+```{r,echo=FALSE}
+main.df %>%  
+  filter(dem_role == "Researcher" | dem_role == "Student") %>%
+  ggplot(aes(x = avg_share, y = avg_reuse , group = 1)) + 
+  #geom_bin2d(binwidth = 0.5) +
+  geom_jitter(alpha=0.5, size = 1.1) +
+  facet_grid(~dem_role) +
+  labs(y = "Average reuse", x = "Average share", title = "Avg Reuse vs Avg Share (Among Roles)", subtitle = "filtered for Researchers and Student") 
+  #geom_smooth(method = "lm")
+  #    geom_abline(show.legend = TRUE)
+
+researcher_main.df <- main.df %>%  
+  filter(dem_role == "Researcher") 
+
+
+students_main.df <- main.df %>%  
+  filter(dem_role == "Student") 
+#count(researcher_main.df)  = 1372 
+#students 73
+#total = 1445
+
+
+#possible regression comparison between researchers and student
+
+
+```
+
+**Observation**
+There are 1372 response of researchers and only 73 that are student, as evidenced by the density and number of data points in the two separate plots. However, the overall trend are similar in both plots and resembles the overall trend of the population, which indicates a positive relationship between their mean sharing values and reuse values.
+
+
+##### Linear regression modelling by roles
+```{r,echo=FALSE}
+lm_stu <- lm(avg_reuse ~ avg_share, data = students_main.df)
+#summary(lm_stu)
+
+lm_researcher <- lm(avg_reuse ~ avg_share, data = researcher_main.df)
+#summary(lm_researcher)
+
+lm_all <- lm(avg_reuse ~ avg_share, data = main.df)
+summary(lm_all)
+
+##If i have showed the smoothed_line i think the lm_all should suffice?)
+```
+
+We regress average reuse on average sharing using linear regression. The adjusted R-squared is 0.2868.
+
+
+```{r, echo=FALSE}
+main.df %>%  
+  filter(dem_role == "Researcher" | dem_role == "Student" ) %>%
+  select("dem_sharself", "dem_role") %>%
+  ggplot(aes(x = dem_sharself, y = ..prop.., group = 1, fill = factor(..x..))) + 
+  #geom_bin2d(binwidth = 0.5) +, 
+  geom_bar(stat = "count", position = "dodge") +
+   labs(y = "Percentage", x = element_blank(), title = "Perception of sharing personally, split by roles", fill = "Sharing Tendency") +
+  facet_wrap(~dem_role) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(4, "mm")) + 
+  scale_y_continuous(limits = c(0,0.65), labels = scales::percent) +
+  scale_fill_brewer(palette="Set3", labels = c("Not Asked", "Strong Discouraged", "Somewhat Discouraged", "Neutral", "Somewhat Encouraged", "Strongly Encouraged"))
+
+main.df %>%  
+  filter(dem_role == "Researcher" | dem_role == "Student" ) %>%
+  select("dem_shardisc", "dem_role") %>%
+  ggplot(aes(x = dem_shardisc, y = ..prop.., group = 1, fill = factor(..x..))) + 
+  #geom_bin2d(binwidth = 0.5) +, 
+  geom_bar(stat = "count", position = "dodge") +
+   labs(y = "Percentage", x = element_blank(), title = "Perception of sharing within individual discplines, split by roles", fill = "Sharing Tendency") +
+  facet_wrap(~dem_role) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(4, "mm")) + 
+  scale_y_continuous(limits = c(0,0.65), labels = scales::percent) +
+  scale_fill_brewer(palette="Set3", labels = c("Not Asked", "Strong Discouraged", "Somewhat Discouraged", "Neutral", "Somewhat Encouraged", "Strongly Encouraged"))
+```
+
+**Conclusions**
+Firstly, both researchers and student share roughly similar trends for sharing individually. Both indicate more than 85% of somewhat and strongly encouraged for sharing. One difference is that for researcher, strongly encouraged is a large majority almost doubling that of somewhat encouraged while for student it is more evenly split. 
+
+Secondly, when looking at fig for sharing by disciplines, the distribution for is more symmetric than the first set of plots. When comparing between researchers and students, the distribution is again roughly similar. 
+
+However, when comparing between sharing types, one can see evidently that the strongly encouraged responses almost halved for sharing within disciplines and more were neutral or even discouraged when compared to sharing personally. This is aligned with the overall trend of the dataset.
+
+```{r roles_reuse, echo=FALSE, message=FALSE, error=FALSE, warning= FALSE}
+main.df %>%  
+  filter(dem_role == "Researcher" | dem_role == "Student" ) %>%
+  select("dem_reuseself", "dem_role") %>%
+  ggplot(aes(x = dem_reuseself, y = ..prop.., group = 1, fill = factor(..x..))) + 
+  #geom_bin2d(binwidth = 0.5) +, 
+  geom_bar(stat = "count", position = "dodge") +
+   labs(y = "Percentage", x = element_blank(), title = "Perception of reuse personally, split by roles", fill = "Sharing Tendency") +
+  facet_wrap(~dem_role) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(4, "mm")) + 
+  scale_y_continuous(limits = c(0,0.55), labels = scales::percent) +
+  scale_fill_brewer(palette="Set4", labels = c("Not Asked", "Strong Discouraged", "Somewhat Discouraged", "Neutral", "Somewhat Encouraged", "Strongly Encouraged"))
+
+main.df %>%  
+  filter(dem_role == "Researcher" | dem_role == "Student" ) %>%
+  select("dem_reusedisc", "dem_role") %>%
+  ggplot(aes(x = dem_reusedisc, y = ..prop.., group = 1, fill = factor(..x..))) + 
+  #geom_bin2d(binwidth = 0.5) +, 
+  geom_bar(stat = "count", position = "dodge") +
+   labs(y = "Percentage", x = element_blank(), title = "Perception of reuse within individual disciplines, split by roles", fill = "Sharing Tendency") +
+  facet_wrap(~dem_role) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(4, "mm")) + 
+  scale_y_continuous(limits = c(0,0.55), labels = scales::percent) +
+  scale_fill_brewer(palette="Set4", labels = c("Not Asked", "Strong Discouraged", "Somewhat Discouraged", "Neutral", "Somewhat Encouraged", "Strongly Encouraged"))
+```
+
+Firstly, both researchers and student respond with overwhelming positivity for **reusing of data personally**, as seen in the left skewness of the data. This is encouraging to see, especially for that for both students and researchers where only 10% are discouraged to reuse data. For Students, there is also a very large portion of responses that felt they were strongly encouraged to reuse data, more than doubling that of those who felt only somewhat encouraged.
+
+When pertaining to **reuse within disciplines**, the distribution is less skewed.The distribution for reusing by disc is more symmetric than that of reuse by self. Overall, the 2 roles do not show a huge difference in how they are discouraged. For researchers, somewhat and strongly discouraged makes up less than 10% and for students it adds up to a little more than 10%. However, a ar larger percentage of respondents in both group felt encouraged and more were neutral about it than reusing personally.
+
+**Main takeaway** The role of the respondents account for little difference in the data set since that a large majority are researchers. ( 1445 out of 1630 ) It has the largest influence on the overall trend of the data hence, moving on we would not have a need for differentiating by roles given that both share similar trends on top of the dominant effect of the researchers role type.
+
+#### Experience Group 
+Moving on we will try to investigate another aspect of demographics which is the level of experience. Firstly we check the relationship of average reuse vs average sharing with different experience group.
+
+Similarly, we will investigate the following:
+(1) how they view sharing personally.
+(2) how they view sharing across disciplines.
+(3) How they view reuse personally.
+(4) How they view reuse across disciplines
+
+##### Relationship between Average Reuse and Average Share with different experience groups
+
+```{r,message = FALSE,warning = FALSE,error = FALSE}
+main.df %>%  
+  #filter(dem_role == "Researcher" | dem_role == "Student") %>%
+  ggplot(aes(x = avg_share, y = avg_reuse , group = 1)) + 
+  #geom_bin2d(binwidth = 0.5) +
+  geom_jitter(alpha=0.5, size = 1.1) +
+  facet_grid(~dem_exprnce) +
+  labs(y = "Average reuse", x = "Average share", title = "Avg Reuse vs Avg Share (Among Exp)", subtitle = "Entire Population (n = 1630)") +
+  geom_smooth(method = "lm")
+```
+
+**Conclusion**
+The overall trend of Average Reuse vs Average Share is roughly similar across all 4 demographics, with a positive relationship between the 2 variables. One can also see the linear line shows a similar gradient across each experience group.
+
+```{r exp_share ,echo=FALSE, message=FALSE, error=FALSE, warning= FALSE}
+
+##SHARING
+main.df %>%  
+  select("dem_sharself", "dem_exprnce") %>%
+  ggplot(aes(x = dem_sharself, y = ..prop.., group = 1, fill = factor(..x..))) + 
+  #geom_bin2d(binwidth = 0.5) +, 
+  geom_bar(stat = "count", position = "dodge") +
+   labs(y = "Percentage", x = element_blank(), title = "Perception of sharing personally by experience", fill = "Sharing Tendency") +
+  facet_wrap(~dem_exprnce) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(4, "mm")) + 
+    scale_y_continuous(limit = c(0, 0.7), labels = scales :: percent) +
+  scale_fill_brewer(palette="Set3", labels = c("Not Asked", "Strongly Discouraged", "Somewhat Discouraged", "Neutral", "Somewhat Encouraged", "Strongly Encouraged"))
+
+main.df %>%  
+  select("dem_shardisc", "dem_exprnce") %>%
+  ggplot(aes(x = dem_shardisc, y = ..prop.., group = 1, fill = factor(..x..))) + 
+  #geom_bin2d(binwidth = 0.5) +, 
+  geom_bar(stat = "count", position = "dodge") +
+   labs(y = "Percentage", x = element_blank(), title = "Perception of sharing within individual disciplines by experience", fill = "Sharing Tendency") +
+  facet_wrap(~dem_exprnce) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(4, "mm")) + 
+    scale_y_continuous(limit = c(0, 0.7), labels = scales :: percent) +
+  scale_fill_brewer(palette="Set3", labels = c("Not Asked", "Strongly Discouraged", "Somewhat Discouraged", "Neutral", "Somewhat Encouraged", "Strongly Encouraged"))
+
+```
+
+**Observation** 
+For sharing individually, the portion of respondents who are somewhat or strongly encouraged to share data increases as age increases. There is also a high This could be that as experience increases, they are more confident with their data practices and are more willing and encouraged to share their datasets. While younger respondents might be less inclined due to fears of criticisms or that they simply do not know of avenues or means to share.
+
+However, for sharing within disciplines, the trend is more similar and more symmetric. They are arguably less inclined to reuse by disciplines too.
+
+```{r, exp_reuse ,echo=FALSE, message=FALSE, error=FALSE, warning= FALSE}
+##REUSE
+main.df %>%  
+  select("dem_reuseself", "dem_exprnce") %>%
+  ggplot(aes(x = dem_reuseself, y = ..prop.., group = 1, fill = factor(..x..))) + 
+  #geom_bin2d(binwidth = 0.5) +, 
+  geom_bar(stat = "count", position = "dodge") +
+   labs(y = "Percentage", x = element_blank(), title = "Perception of reusing personally by Experience", fill = "Reuse Tendency") +
+  facet_wrap(~dem_exprnce) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(4, "mm")) + 
+    scale_y_continuous(limit = c(0, 0.5), labels = scales :: percent) +
+  scale_fill_brewer(palette="Set4", labels = c("Not Asked", "Strong Discouraged", "Somewhat Discouraged", "Neutral", "Somewhat Encouraged", "Strongly Encouraged"))
+
+main.df %>%  
+  select("dem_reusedisc", "dem_exprnce") %>%
+  ggplot(aes(x = dem_reusedisc, y = ..prop.., group = 1, fill = factor(..x..))) + 
+  #geom_bin2d(binwidth = 0.5) +, 
+  geom_bar(stat = "count", position = "dodge") +
+   labs(y = "Percentage", x = element_blank(), title = "Perception of reusing within individual discplines by Experience", fill = "Reuse Tendency") +
+  facet_wrap(~dem_exprnce) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(4, "mm")) + 
+    scale_y_continuous(limit = c(0, 0.5), labels = scales :: percent) +
+  scale_fill_brewer(palette="Set4", labels = c("Not Asked", "Strong Discouraged", "Somewhat Discouraged", "Neutral", "Somewhat Encouraged", "Strongly Encouraged"))
+```
+
+**Observation**
+For reusing individually, the overall trend of the four group are similar. With majority indicating a "strong or somewhat encouraged" attitude towards reusing data. 
+The trend for reusing by disciplines are also very similar, being more symmetric and less skewed.
+
+One would expect the younger experience group to be more inclined to reuse data than other experience groups. As the inexperienced researchers have not refined their research methodology in terms of data collection or reading and thus feels more inclined to reuse data than more experienced individuals. However, it is not true in fact the 31+ age group shows high willingness to reuse data, similar to that of the 0-5 age group.
+
+**Overall trend** As the experience of an individual increases, they become more inclined to share data as opposed to reusing data. This can be seen in the 31+ group being the least inclined to reuse data out of all the experience groups. This could be because that more experienced researchers often specialize in their field or have refined and preferred data collection methodologies. Their standards and requirements for data are often specific and are not as easily replicated.
+
+Therefore, it is probably more advisable to advise reuse of data among younger researchers to allow them to develop their preferred data collection methods. (0-5 and 6-15). They are more malleable and receptive to data reuse and would also benefit more from learning refined methods of data collection or data extraction.
+
+**Conclusion**
+It merits us to investigate further using experience levels and we will try to differentiate between sharers and non-sharers next.
+
+##### Sharers vs Non-sharers graphs for average reuse and average share
+
+```{r, echo=FALSE, message = FALSE}
+
+main.df %>%  
+  #filter(dem_role == "Researcher" | dem_role == "Student") %>%
+  ggplot(aes(x = avg_share, y = avg_reuse , group = 1)) + 
+  #geom_bin2d(binwidth = 0.5) +
+  geom_jitter(alpha=0.5, size = 1.1) +
+  facet_grid(~dem_exprnce) +
+  labs(y = "avg_reuse", x = "avg_share", title = "Avg Reuse vs Avg Share (Among Exp)", subtitle = "Entire Population (n = 1630)") +
+  theme()
+
+main.df %>%  
+  filter(dem_shared == "Yes") %>%
+  ggplot(aes(x = avg_share, y = avg_reuse , group = 1)) + 
+  #geom_bin2d(binwidth = 0.5) +
+  geom_jitter(alpha=0.5, size = 1.1) +
+  facet_grid(~dem_exprnce + dem_shared) +
+  labs(y = "avg_reuse", x = "avg_share", title = "Avg Reuse vs Avg Share (Among Exp)", subtitle = "Sharers (n = 1398)") +
+  theme() +
+  geom_smooth(method = "lm") 
+
+
+main.df %>%  
+  filter(dem_shared == "No") %>%
+  ggplot(aes(x = avg_share, y = avg_reuse , group = 1)) + 
+  #geom_bin2d(binwidth = 0.5) +
+  geom_jitter(alpha=0.5, size = 1.1) +
+  facet_grid(~dem_exprnce + dem_shared) +
+  labs(y = "avg_reuse", x = "avg_share", title = "Avg Reuse vs Avg Share (Among Exp)", subtitle = "Non-sharers (n = 232)") +
+    geom_smooth(method = "lm")
+```
+
+**Observation across different experience groups**
+Similar trend is visible across both the sharers and non-sharers, resembling that of the entire population too. The same can be said across all experience group of respondents.(Note that the first figure is seen at the start of this section) This is perhaps due to the high number of sharers which will cause the entire dataset to resemble that of the sharers.
+
+
+##### Investigating Perceptions of Non-sharers split by experience
+Next, we seek to investigate the non-sharers since they are a minority and to perhaps get a better idea of what is deterring them from sharing. We will be plotting their overall responses to different ypes of sharing and resue as bar plots to understand the distribution or relationship if any.
+
+```{r non-sharers, exp, perc - repeated, echo=FALSE, warning = FALSE}
+dem_exp.vs.share <- research %>% 
+  dplyr::filter(dem_shared == "No") %>%
+  dplyr::select("responseid", "dem_exprnce", starts_with("dem_shar") & ! "dem_shared") %>%
+  pivot_longer(starts_with("dem_shar"), names_to = "Sharing", values_to = "value")  
+#%>% filter(value != "Don't know/ Not applicable")
+
+ggplot(data=dem_exp.vs.share, aes(x = value, y = ..prop.., group = 1, fill = factor(..x..))) +
+  labs(y= "Percentage", x = element_blank(), title = "Perception on Sharing by Experience (among non-sharers)", fill = "Sharing Tendency") +
+  geom_bar(stat = "count") + 
+  facet_wrap(~dem_exprnce) +
+  scale_y_continuous(labels = scales::percent) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(4, "mm")) +
+  scale_fill_brewer(palette="Set3", labels = c("Not Asked", "Strongly Discouraged", "Somewhat Discouraged", "Neutral", "Somewhat Encouraged", "Strongly Encouraged"))
+
+#Exp vs Perceptions on reuse:
+
+dem_exp.vs.reuse <- research %>% 
+  dplyr::filter(dem_shared == "No") %>%
+  dplyr::select("responseid", "dem_exprnce", starts_with("dem_reuse")) %>%
+  pivot_longer(starts_with("dem_reuse"), names_to = "Perception On Reuse", values_to = "value") 
+
+
+ggplot(data=dem_exp.vs.reuse, aes(x = value, y = ..prop.., group = 1, fill = factor(..x..))) +
+  labs(y= "Percentage", x = element_blank(), title = "Perception on Reuse by Experience (among non-sharers)", fill = "Reuse Tendency") +
+  geom_bar(stat = "count") + 
+  facet_wrap(~dem_exprnce) +
+  aes(stringr::str_wrap(value, 30),) + xlab(NULL) +
+  scale_y_continuous(labels = scales::percent) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x =element_blank(), 
+        panel.spacing.x = unit(4, "mm")) +
+  scale_fill_brewer(palette="Set4", labels = c("Not Asked", "Strongly Discouraged", "Somewhat Discouraged", "Neutral", "Somewhat Encouraged", "Strongly Encouraged"))
+
+```
+**Conclusion**
+As one can see, there is a very low percentage of non-sharers who are somewhat or strongly encouraged to share data, ranging from 30-50%. However, the somewhat discouraged and strong discouraged are evidently the majority. This trend is similar for reuse.
+
+There is also a slight positive relationship where as age increases, the non-sharers are more encouraged to share data.
+However, the same is not true for reuse. The youngest experience group and oldest experience group are the most encouraged to reuse data which is interesting. Since one might not expect the most experienced group to be as inclined to reuse data as the inexperience group.
+
+##### Comparison for Perceptions of Reuse, Sharing Between Sharers and Non-sharers
+
+Following that we do a side-by-side comparison for sharers and non-sharers to see if there are any significant findings or insight.
+
+```{r Overall Perceptions of Reuse, Sharing Between Sharers and Non-sharers, echo=FALSE, warning = FALSE, message = FALSE}
+plot1 <- research %>%
+  dplyr::select(starts_with("dem_shar")) %>%
+  pivot_longer(starts_with("dem_shar") & !starts_with("dem_shared")) %>%
+  group_by(dem_shared, name, value) %>%
+  summarize(num_respondents = n()) %>%
+  mutate(Percentage = num_respondents/sum(num_respondents) * 100)
+
+plot1$value = factor(plot1$value, levels = c("Don't know/ Not applicable", "Data sharing is strongly discouraged","Data sharing is somewhat discouraged", "Data sharing is neither encouraged nor discouraged", "Data sharing is somewhat encouraged", "Data sharing is strongly encouraged")) 
+
+plot1 %>%
+  ggplot(aes(x = value, y = Percentage, fill = value, group = 1)) + 
+  geom_bar(stat = "identity") +
+  facet_grid(dem_shared ~ name) +
+  ylab("Percentage of respondents (%)") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+      scale_y_continuous(limit = c(0, 65)) +
+  labs(title = "Perceptions on Sharing between sharers and non-sharers", caption = "Sequence as follows: discipline, group, organisation, self")
+
+
+
+plot2 <- research %>%
+  dplyr::select("dem_shared", starts_with("dem_reuse")) %>%
+  pivot_longer(starts_with("dem_reuse") ) %>%
+  group_by(dem_shared, name, value) %>%
+  summarize(num_respondents = n()) %>%
+  mutate(Percentage = num_respondents/sum(num_respondents) * 100) 
+  
+plot2$value <- factor(plot2$value, levels = c("Don't know/ Not applicable", "Data reusing is strongly discouraged","Data reusing is somewhat discouraged", "Data reusing is neither encouraged nor discouraged", "Data reusing is somewhat encouraged", "Data reusing is strongly encouraged")) 
+  
+plot2 %>%
+  ggplot(aes(x = value, y = Percentage, fill = value, group = 1)) +
+  geom_bar(stat = "identity") +
+  facet_grid(dem_shared ~ name) +
+  ylab("Percentage of respondents (%)") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  scale_y_continuous(limit = c(0, 65)) +
+  labs(title = "Perceptions on Reuse between sharers & non-sharers", caption = "Sequence as follows: discipline, group, organisation, self")
+
+```
+
+**Perceptions on Sharing**
+Individuals report that they most likely to share data themselves as opposed to across group entities. (disc, grp, org) This is true for both sharers and non-sharers. 
+
+Evidently the percentage of individuals who have shared have a higher overall willingness to share data as opposed to those have not shared. This is true across all 4 types of sharing.
+
+Interestingly, there are still relatively high willingness of individuals to share data despite not having shared before.
+
+**Perceptions on Reusing**
+There exists a similar trend to the perceptions on sharing is viewed here. Individuals report that they are more likely and encouraged to reuse as opposed to in groups. (disc, grp, org) 
+
+When comparing across those who have shared and not shared, evidently those who have shared had higher willingness to reuse data across all types. However, It is heartening to see 
+
+**Comparison**
+
+The overall portion of individuals who are somewhat/strongly encouraged to share data is larger than that of individuals who reported the same willingness to reuse data. The overall portion of individuals who are ambivalent or somewhat/strongly discouraged to reuse data is larger than that of sharing data. 
+
+This could be because individuals often need specific data sets or specific methodology of which data is collected for best usage for their research. Hence they as a result, might be less willing to reuse prior data if they do not fit their needs as much.
+
+##### Linear Model for predicting perceptions on self using their perceptions in group
+
+Given that one more likely to share and reuse data individually than in group, we seek to investigate if their inclinations in a group setting can be used to predict how likely they are willing to share/reuse data individually.
+
+```{r,echo=FALSE,message = FALSE}
+share_lm <- lm(dem_sharself ~ dem_shardisc + dem_shargrp + dem_sharorg, data = main.df)
+
+summary(share_lm)
+#adjusted R-squared of 0.2979
+
+reuse_lm <- lm(dem_reuseself ~ dem_reusedisc + dem_reusegrp + dem_reuseorg, data = main.df)
+
+summary(reuse_lm)
+#adjusted R-squared of 0.5085 
+```
+
+**Observation** There is higher correlation between their indication or reusing data within a group and reusing one-self than that of sharing. This indicates perhaps the behavior of reusing data in a group setting is a better indicator of reusing data individually than sharing in a group setting can used to predict if individuals are likely to share data. 
+
+In other words, the sharing perceptions are much more varied.
+
+##### Possible Explanations for difference between Individual and Group sharing/reusing
+
+Across all types of classification, a common trend for the difference between group sharing/reusing and individuals exists in that individual preference are more encouraging than that within groups.
+
+These could be due to individuals being more clear and decisive in their data practices and therefore able to respond more positively when appropriate. When in group settings, the data practices or protocols might be differ from individuals or even have less clarity as there are differing priorities and projects all the time. The overall data practices and methodology might also encourage less sharing and reuse. 
+
+Another possible reason for a lack of reuse tendency in group settings, individuals feel more pressured by their peers and counterparts to engage in collection of primary data and not engage freely in reusing prior data. With that it leaves us room to explore why if other factors affected their inclination, like data needs, uses or even fields of expertise.
+
+
+#### Other Factors Total Disciplines and Total Challenges
+Next, we explore 2 other new variables that are transformed from the current data set.
+
+Firstly, we investigate the effect of total number discipline, (total_disc) on (1) avg_share , (2) avg_reuse, (3)total challenges.
+
+Secondly, we will investigate total challenges and its effect on average reuse to see if average reuse scores increases when researchers encounter more challenges when finding data.
+
+##### EDA of Total Discipline
+
+As previously mentioned, `disc_total`(numerical) refers to the the total number of discipline reported by each individual, it is to be taken as a proxy measure of how multidisciplinary one's work might be. It is a numerical value from 1 to 20.
+Firstly, we shall take a look at the distribution of total discipline.
+
+```{r}
+table(main.df$disc_total)
+```
+
+```{r}
+main.df %>%  
+  ggplot(aes(x = disc_total)) +
+  labs(y = "Number of respondents", x = "Total Disciplines Involved")+
+  geom_bar()
+```
+
+**Observation**
+A large majority of 816 individuals are only involved in 1 discipline, with 370 in 2 disciplines and 235 in 3 disciplines. The histogram is very right skewed with one mode at the 1 discipline.
+
+Evidently, not majority of researchers are involved in multidisciplinary research. Despite that, we would investigate further to see if there are any positive effects on other factors.
+
+**Future work**
+One could filter the groups into 2 main groups, such as multidisciplinary or only one discipline for a better split and distribution of the population.
+
+##### EDA of Total Challenges
+As previously mentioned, `total_chal` (numerical) refers to the total number of challenges reported by individuals when finding data. For each challenges, they are reported a "1" for "Yes" and "0" for "No". It is then summed up under a new numerical variable.
+
+```{r}
+table(main.df$total_chal) 
+```
+
+```{r}
+main.df %>%  
+  ggplot(aes(x = total_chal)) +
+  labs(y = "Number of respondents", x = "Total Challanges Faced")+
+  geom_bar()
+```
+
+**Conclusion**
+As seen in the histogram, the distribution of total challenges faced for researchers is relatively symmetrical with only a slight left skewness and a primary mode at 3 challenges. The top 3 number of challenges reported by respondents are 3 with 447 respondents, 398 respondents with 2 challenges and 269 with 1 challenge.
+
+#### Bivariate Analysis
+
+For the following parts we will be exploring our 2 new variables with other variables in various bivariate analysis.
+
+##### Relationship between Total Disciplines and Average Share
+Firstly, we investigate the relationship between average share and total discipline.
+
+```{r disc_total vs avg_share,echo=FALSE, message = FALSE}
+main.df %>%  
+  ggplot(aes(x = disc_total, y = avg_share , group = 1)) + 
+  #geom_bin2d(binwidth = 1) +
+  geom_jitter(alpha=0.5, size = 1.1) +
+  facet_grid(~dem_shared) +
+  labs(y = "Avg_share", x = "Total Number of Disciplines Involved", title = "Total Disciplines vs Avg Share", subtitle = "All (n = 1630)") +
+  geom_smooth(method = "lm")
+```
+
+```{r,echo=FALSE}
+disc.vs.share.lm <- lm(formula = avg_share ~ disc_total, data = main.df)
+summary(disc.vs.share.lm)
+```
+
+**Conclusion**
+There is small positive relationship that is not very significant given an adjusted R-squared value of 0.001131 when predicting average sharing using total discipline. 
+
+Despite that, the effect is more significant for non-sharers than sharers.
+
+This could be because that majority of the data set are sharers and also majority of responses do not have many disciplines resulting in the plotted line on the right to be less steep.
+
+##### Relationship between Total Disciplines and Average Reuse
+
+After exploring the effect of total number of disciplines on average sharing, we shall investigate its effect on average reuse and compare to see there is any significant difference.
+
+```{r disc_total vs avg_reuse,echo=FALSE, warning=FALSE, message= FALSE}
+main.df %>%  
+  ggplot(aes(x = disc_total, y = avg_reuse , group = 1)) + 
+  #geom_bin2d(binwidth = 1) +
+  geom_jitter(alpha=0.5, size = 1.1) +
+  facet_grid(~dem_shared) +
+  labs(y = "Avg Reuse", x = "Total Number of Disciplines Involved", title = "Total Disciplines vs Avg Reuse", subtitle = "All (n = 1630)") +
+  geom_smooth()
+```
+
+```{r,echo=FALSE}
+disc.vs.reuse.lm <- lm(formula = avg_reuse ~ disc_total, data = main.df)
+summary(disc.vs.reuse.lm)
+```
+
+**Conclusion and Comparison**
+With regards to fig __ , there is no real significant effect of total number of disciplines on average reuse scores for both groups since the adjusted R-squared value of predicting average reuse using total disciplines is only 0.0007059.
+
+When comparing, the effect of total disciplines on sharing is more significant given the higher Adjust R-squared value of 0.001131 against 0.0007059. However, all in all one can still surmise that the correlation between total number of disciplines and the average sharing and reuse scores are low given the gentle sloop of the plotted line and the low Adjusted R-square values.
+
+##### Relationship between Total Disciplines and Total Challenges 
+Next, we might hypothesized that as one is involved in more disciplines, the challenges faced in finding data could become more complex and thus one might run into more problems. Hence we seek to investigate this.
+```{r disc_total vs total_chal,echo=FALSE}
+main.df %>%  
+  ggplot(aes(x = disc_total, y = total_chal , group = 1)) + 
+  geom_bin2d(binwidth = 1) +
+  #geom_jitter(alpha=0.5, size = 1.5) +
+  facet_grid(~dem_shared) +
+  labs(y = "Total Challenges Faced", x = "Total Number of Disciplines Involved", title = "Total Disciplines vs Total Challenges", subtitle = "All (n = 1630)") +
+  theme()
+```
+
+**Observation**
+There is no strong relationship or correlation observed between the two factor. Given that there is a high density of individuals with low number of disciplines there is no significant relationship.
+
+##### Relationship between total challenges faced and tendency to reuse data
+
+Next, we would like to see if the number of challenges they faced while finding data has resulted in an increased propensity or willingness to reuse data. This is on the assumption that if one have trouble finding desired data set they might be more likely to reuse prior data sets more readily available.
+
+```{r,echo=FALSE, message = FALSE}
+main.df %>%  
+  ggplot(aes(x = total_chal, y = avg_reuse , group = 1)) + 
+  #geom_bin2d(binwidth = 1) +
+  geom_jitter(alpha=0.5, size = 1.5) +
+  geom_smooth(method = "lm")+
+  facet_grid(~dem_shared) +
+  labs(y = "Avg_reuse", x = "Total Number of Challenges when finding data", title = "Total Challenges vs Average Reuse", subtitle = "All (n = 1630)") +
+  theme()
+
+```
+
+**Observation**
+For non-sharers, the relationship between number of challenges and reuse tendency is more defined and positive than that of the sharers. As they encountered more challenges, they are more likely to have reported a higher willingness to reuse data.
+
+However, we should also be wary since that the sample size of non-sharers is significantly smaller than that of the sharers. Only 232 non-shares and 1398 sharers.
+
+#### Classification Trees 
+```{r,}
+plot_tree1 <- rpart(dem_shared ~ dem_sharself + dem_exprnce + dem_shardisc + dem_reuseself + dem_reusedisc,
+                   cp = 0.001,
+                   data = main.df,
+                   control = rpart.control(maxdepth=5))
+
+prp(plot_tree1,  extra = 101, leaf.round = 3, fallen.leaves = TRUE,
+    varlen = 0, tweak = 0.8)
+```
+
+The model of the classification tree is used to predict whether one has "shared" using 5 variables that we have mentioned earlier. 
+They are also follows:
+(1) Willingness to share data individually  
+(2) Willingness to share data within disciplines 
+(3) Willingness to reuse data individually
+(4) Willingness to reuse data within disicpline
+(5) Experience group
+
+**Conclusion**
+The classification trees indicate that if they indicated a strong inclination to share themselves ( > 4), they are highly likely to have shared. (level 1, 85%) This is also known as the **most important factor** in determining whether have they shared data. Likewise when their experience is between 0-5 and given that they have expressed a willingness to share, they are also predicted to have shared more often that their counter parts. (level 2, 23%)
+
+#### Limitations 
+
+##### Average Score Computation method
+
+Due to the formula used to compute average score and average reuse, a "0" is given for response that are "Not Asked". This will result in a lower score computed for both cases.
+
+##### Transformation of variable
+
+With regards to disciplines and challenges, denoting them as a binary classification might not reflect the whole spectrum of information available. Since one challenge might pose bigger problems than another challenge for instance, and they are not weighted equally in reality. The same could be said for the compexity or difficulty of the disciplines involved.
+
+###  Open Response Eval (Q12)
+
+The following examines open response question Q12, asking the respondents to specify any information they consider when deciding whether to use or not to use secondary data:
+
+```{r open eval RESEARCH}
+##too few responses in support dataset
+
+#Q12_open (eval_infopen)
+#Please specify any other information you consider when deciding whether to use or not secondary data?
+
+
+r_eval <- research %>%
+  dplyr::select(c("eval_infopen"))
+
+open_r_eval <- r_eval%>%
+  unnest_tokens(word, eval_infopen)
+
+new_r_eval <- open_r_eval %>%
+  anti_join(stop_words, by = c("word" = "word")) 
+
+#STEMMING
+eval_rea <- new_r_eval %>%
+  mutate(stem = wordStem(word)) %>%
+  dplyr::count(stem, sort = TRUE)
+  
+
+#sort(table(unlist(strsplit(new_r_eval$word, " "))), decreasing = TRUE)
+
+##Graph
+
+eval_rea_all <- na.omit(eval_rea) #delete NA column
+
+top_n(eval_rea_all, n=10, n) %>%
+          ggplot(.,aes(x=stem, y=n))+
+  labs(y= "count", x = "words", title = "10 most frequent words in open response question Q12") +
+              geom_bar(stat='identity', fill= "#238A8DFF")
+
+##Wordcloud
+
+#wordcloud2(data=eval_rea_all, size=1.6, color='random-dark')
+
+###removed 'data'
+
+#remove_eval <- eval_rea_all[-1, ]
+
+#wordcloud2(data=remove_eval, size=0.7, shape = 'circle')
+
+```
+
+**Conclusion:**
+
+According to the frequency of the words that appeared in the open response, the results highlight common words such as reliability, free/cost, time period/date of data, and relevance. Therefore, when deciding whether to use or not secondary data, researchers tend to have these factors in mind. 
+
+### Tests for significance
+```{r tests}
+reuse_counts <- research %>%
+  dplyr::select(dem_exprnce|dem_reuseself | dem_reusegrp) %>%
+  group_by(dem_exprnce) %>%
+  summarize(across(.fns = ~sum(!(.x == c("Data reusing is strongly encouraged")))), num_respondents = n()) 
+prop.test(reuse_counts$dem_reuseself, reuse_counts$dem_reusegrp) 
+#This tests shows no significance differences between self and group in the proportion of encouragement grouped by years of experience.
+
+reuse_counts <- research %>%
+  dplyr::select(dem_exprnce|dem_reuseself | dem_reusedisc) %>%
+  group_by(dem_exprnce) %>%
+  summarize(across(.fns = ~sum(!(.x == c("Data reusing is strongly encouraged")))), num_respondents = n()) 
+prop.test(reuse_counts$dem_reuseself, reuse_counts$dem_reusedisc) 
+#This tests shows no significance differences between slef and disciplinary field in the proportion of encouragement grouped by years of experience.
+
+reuse_counts <- research %>%
+  dplyr::select(dem_exprnce|dem_reuseself | dem_reuseorg) %>%
+  group_by(dem_exprnce) %>%
+  summarize(across(.fns = ~sum(!(.x == c("Data reusing is strongly encouraged")))), num_respondents = n()) 
+prop.test(reuse_counts$dem_reuseself, reuse_counts$dem_reuseorg) 
+#This tests shows no significance differences between self and organizations in the proportion of encouragement grouped by years of experience.
+
+```
+
+
+## SECTION 3: Support x Researchers 
+
+### Importance of information to decide whether to use secondary data (Q12/L13)
+
+We investigate the differences in how students, researchers, and support professionals values information when deciding whether to use secondary data.
+```{r, include=FALSE} 
+# Q12/L13
+# students 
+eval_dict <- c("eval_infmeth" = "Collection conditions and methodology", "eval_infprov" = "Processing and handling", "eval_infrepcreatr" = "Reputation data creator", "eval_infrelcreatr" = "Personally knowing data creator", "eval_infrepsource" = " Reputation data source", "eval_infmeta" = "Detailed metadata and documentation", "eval_infsize" = "Size", "eval_inffrmt" = "Format", "eval_inflic" = "Licensing conditions", "eval_infcovg" = "Correct coverage", "eval_infpurps" = "Original purpose", "eval_infaccs" = "Ease of access", "eval_inftopic" = "Topic relevance")
+
+eval_data_st <- students %>% 
+  dplyr::select("responseid", "dem_exprnce", "eval_infmeth", "eval_infprov", "eval_infrepcreatr", "eval_infrelcreatr", "eval_infrepsource", "eval_infmeta", "eval_infsize", "eval_inffrmt", "eval_inflic", "eval_infcovg", "eval_infpurps", "eval_infaccs", "eval_inftopic") %>% 
+  pivot_longer(cols = c("eval_infmeth", "eval_infprov", "eval_infrepcreatr", "eval_infrelcreatr", "eval_infrepsource", "eval_infmeta", "eval_infsize", "eval_inffrmt", "eval_inflic", "eval_infcovg", "eval_infpurps", "eval_infaccs", "eval_inftopic"), names_to = "evaluation", values_to = "values")
+
+eval_data_st$eval_name <- eval_dict[eval_data_st$evaluation]
+
+# researcher ppl 
+eval_data_re <- research_ppl %>% 
+  dplyr::select("responseid", "dem_exprnce", "eval_infmeth", "eval_infprov", "eval_infrepcreatr", "eval_infrelcreatr", "eval_infrepsource", "eval_infmeta", "eval_infsize", "eval_inffrmt", "eval_inflic", "eval_infcovg", "eval_infpurps", "eval_infaccs", "eval_inftopic") %>% 
+  pivot_longer(cols = c("eval_infmeth", "eval_infprov", "eval_infrepcreatr", "eval_infrelcreatr", "eval_infrepsource", "eval_infmeta", "eval_infsize", "eval_inffrmt", "eval_inflic", "eval_infcovg", "eval_infpurps", "eval_infaccs", "eval_inftopic"), names_to = "evaluation", values_to = "values")
+
+
+eval_data_re$eval_name <- eval_dict[eval_data_re$evaluation]
+
+# support 
+eval_data_sppt <- support %>% 
+  dplyr::select("responseid", "dem_exprnce", "eval_infmeth", "eval_infprov", "eval_infrepcreatr", "eval_infrelcreatr", "eval_infrepsource", "eval_infmeta", "eval_infsize", "eval_inffrmt", "eval_inflic", "eval_infcovg", "eval_infpurps", "eval_infaccs", "eval_inftopic") %>% 
+  pivot_longer(cols = c("eval_infmeth", "eval_infprov", "eval_infrepcreatr", "eval_infrelcreatr", "eval_infrepsource", "eval_infmeta", "eval_infsize", "eval_inffrmt", "eval_inflic", "eval_infcovg", "eval_infpurps", "eval_infaccs", "eval_inftopic"), names_to = "evaluation", values_to = "values")
+
+
+eval_data_sppt$eval_name <- eval_dict[eval_data_sppt$evaluation]
+```
+
+#### Importance of information to decide whether to use secondary data for students
+
+```{r, echo=FALSE, fig.cap = "The majority of students indicate they find data collection conditions and methedology, reputation of data source, metadata and documentation, how the data was processed and handled, and topic relevance to be factors that are important when deciding to use secondary data", fig.width = 12,fig.height = 8} 
+ggplot(data=eval_data_st, aes(x = values)) +
+  labs(y= "Percentage", title = "Decide whether to use secondary data") +
+  geom_bar(aes(y = ..prop.., group = evaluation, fill = factor(..x..)), stat="count", position = "dodge") +
+  facet_wrap(~ eval_name) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x = element_blank())+
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette="Set3", name = "Importance", labels = c("Extremely important", "Important", "Less important", "Not important", "Somewhat important"))
+```
+
+It appears that information such as data collection conditions and methodology, topic relevance, correct coverage and how the data was processed and handled where the most important for students when they decided whether to use secondary data. Conversely, personally knowing the data creator was not important for nearly 45% of the students and  less important for nearly 30% of students. This could indicate that students care more about the data quality itself a bit more than the the data creator or source. 
+
+#### Importance of information to decide whether to use secondary data for researchers
+```{r, echo=FALSE, fig.cap="Researchers indicated reputation of data source, collection conditions and methodology, ease of access, how the data was processed and handled, and topic relevance to be important factors when deciding whether to use secondary data", fig.width = 12,fig.height = 8} 
+ggplot(data=eval_data_re, aes(x = values)) +
+  labs(y= "Percentage", title = "Decide whether to use secondary data") +
+  geom_bar(aes(y = ..prop.., group = evaluation, fill = factor(..x..)), stat="count", position = "dodge") +
+  facet_wrap(~ eval_name) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x = element_blank())+
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette="Set3", name = "Importance", labels = c("Extremely important", "Important", "Less important", "Not important", "Somewhat important"))
+```
+
+
+It appears that researchers care about the similar information that are important to students when deciding whether to use secondary data with collection conditions and methodology being the most important followed by how the data was processed and handled and topic relevance. Similarly to the students, personally knowing the data creator is the least important factor with around 25% of researchers indicating it is not important followed by around 23% indicating it is less important. Researchers appear to care more about the quality of the data itself more than the data creator, size, format or the original intent of the data. 
+
+
+#### Importance of information to decide whether to use secondary data for support professionals
+
+```{r, echo=FALSE, fig.cap="Support professionals indicated data collection conditions and methodology, detailed metadata and documentation, ease of data access, how the data was processed and handled, and topic revelance to be important when deciding whether to use secondary data", fig.width = 12,fig.height = 8} 
+ggplot(data=eval_data_sppt, aes(x = values)) +
+  labs(y= "Percentage", title = "Decide whether to use secondary data") +
+  geom_bar(aes(y = ..prop.., group = evaluation, fill = factor(..x..)), stat="count", position = "dodge") +
+  facet_wrap(~ eval_name) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x = element_blank())+
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette="Set3", name = "Importance", labels = c("Extremely important", "Important", "Less important", "Not important", "Somewhat important"))
+```
+
+It appears that support professional consider the having detailed metadata and documentation for the data to be important information when deciding whether to use secondary data. Collection condition and methodology, topic relevance, ease of access, and how the data was processed and handled are also important information for support professionals. While data quality is still important information, it appears that support professional indicate information that aids in access and understanding data to be more important than the importance students and researchers place on this information. This makes sense as support professionals likely find data for clients who are the ones who actually use the data. While support professional are responsible to find good quality data, they consider information that would make accessing and understanding or explaining the data easier as well. 
+
+### Importance of helping establish trust in data (Q14/L16)
+
+We investigate the differences in how students, researchers, and support professionals establish trust in data.
+
+```{r, include=FALSE}
+#Q14/L16
+#eval_trstopen
+
+# students 
+trust_dict <- c("eval_trstuse" = "Prior usage", "eval_trstsource" = "Reputation data source", "eval_trstrepcreatr" = "Reputation data creator", "eval_trstmeth" = "Transparency in methods", "eval_trsterr" = "Lack of errors", "eval_trstaccs" = "Ease of access", "eval_trstrelcrtr" = "Personal relationship with data creator")
+
+trust_data_st <- students %>% 
+  dplyr::select("responseid", "dem_exprnce", "eval_trstuse", "eval_trstsource", "eval_trstrepcreatr", "eval_trstmeth", "eval_trsterr", "eval_trstaccs", "eval_trstrelcrtr") %>% 
+  pivot_longer(cols = c("eval_trstuse", "eval_trstsource", "eval_trstrepcreatr", "eval_trstmeth", "eval_trsterr", "eval_trstaccs", "eval_trstrelcrtr"), names_to = "trust", values_to = "values")
+
+trust_data_st$trust_name <- trust_dict[trust_data_st$trust]
+
+# researcher ppl 
+trust_data_re <- research_ppl %>% 
+  dplyr::select("responseid", "dem_exprnce", "eval_trstuse", "eval_trstsource", "eval_trstrepcreatr", "eval_trstmeth", "eval_trsterr", "eval_trstaccs", "eval_trstrelcrtr") %>% 
+    pivot_longer(cols = c("eval_trstuse", "eval_trstsource", "eval_trstrepcreatr", "eval_trstmeth", "eval_trsterr", "eval_trstaccs", "eval_trstrelcrtr"), names_to = "trust", values_to = "values")
+  
+trust_data_re$trust_name <- trust_dict[trust_data_re$trust]
+                                      
+# support 
+trust_data_sppt <- support %>% 
+  dplyr::select("responseid", "dem_exprnce", "eval_trstuse", "eval_trstsource", "eval_trstrepcreatr", "eval_trstmeth", "eval_trsterr", "eval_trstaccs", "eval_trstrelcrtr") %>% 
+  pivot_longer(cols = c("eval_trstuse", "eval_trstsource", "eval_trstrepcreatr", "eval_trstmeth", "eval_trsterr", "eval_trstaccs", "eval_trstrelcrtr"), names_to = "trust", values_to = "values")
+
+trust_data_sppt$trust_name <- trust_dict[trust_data_sppt$trust]
+```
+
+#### Importance of factors helping establish trust in data for students 
+
+```{r, echo=FALSE, fig.cap="Transparency in data collection methods, lack of errors in the data, and having prior usage of the data are the factors than are improtant for students when establishing trust in data", fig.width = 12,fig.height = 8} 
+ggplot(data=trust_data_st, aes(x = values)) +
+  labs(y= "Percentage", title = "Factors to establish trust in data") +
+  geom_bar(aes(y = ..prop.., group = trust, fill = factor(..x..)), stat="count", position = "dodge") +
+  facet_wrap(~ trust_name) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x = element_blank())+
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette="Set3", name = "Importance", labels = c("Extremely important", "Important", "Less important", "Not important", "Somewhat important"))
+```
+
+
+It appears that students believe that data transparency and accuracy are important factors when establishing trust in data. This is evident from the percentage of students who indicated extremely important and important for lack of error (over 30% and over 50%) and for transparency in data collection methods (nearly 50% and nearly 40%). There is also a large percentage of students who indicate prior usage as important (nearly 60%) in establishing trust in data but the percentage indicate it is extremely important is low comapred to other factors that appear to be important. This could indicate that while having prior usage is helpful in establishing trust, it is not as important as the accuracy, transparency and even ease of accessing data for students.
+
+
+#### Importance of factors helping establish trust in data for researchers
+
+```{r, echo=FALSE, fig.cap= "Lack of errors, prior usage transparency in data collection methods and reputation of data source are all important factors for researchers when establishing trust in data.",  fig.width = 12,fig.height = 8} 
+ggplot(data=trust_data_re, aes(x = values)) +
+  labs(y= "Percentage", title = "Factors to establish trust in data") +
+  geom_bar(aes(y = ..prop.., group = trust, fill = factor(..x..)), stat="count", position = "dodge") +
+  facet_wrap(~ trust_name) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x = element_blank())+
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette="Set3", name = "Importance", labels = c("Extremely important", "Important", "Less important", "Not important", "Somewhat important"))
+```
+
+It appears that researchers, like students, value factors dealing with data transparency and accuracy when it comes to establishing trust in data. The percentage of researchers who indicated transparency in data collection methods and lack of errors in data as extremely important (just over 50% and around 37%) surpasses the percentage of students who indicated the same. It appears that the reputation of the data source and ease of access is more important among researchers than students in establishing trust in data. This could indicate that researchers, who could be producing more important or impactful work than the majority of students, values not only data transparency and accuracy but also the reputation of their source and the ease of accessing data when determining whether to trust the data. 
+
+#### Importance of factors helping establish trust in data for support professionals
+```{r, echo=FALSE, fig.cap="Support professionals consdier ease of accesstransparency in data collection methods, and the reputation of data source to be important factors when establishing trust in data.",  fig.width = 12,fig.height = 8} 
+ggplot(data=trust_data_sppt, aes(x = values)) +
+  labs(y= "Percentage", title = "Factors to establish trust in data") +
+  geom_bar(aes(y = ..prop.., group = trust, fill = factor(..x..)), stat="count", position = "dodge") +
+  facet_wrap(~ trust_name) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x = element_blank())+
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette="Set3", name = "Importance", labels = c("Extremely important", "Important", "Less important", "Not important", "Somewhat important"))
+```
+
+It appears that research support professional place more importance on ease of access and reputation of the data source than researchers or students. This is reasonable as research support professionals may not be experts in niche fields in which their clients any request data or aid. Thus, factors such as a reputable source or protected data could be interpreted as the data being more trustworthy. Transparency in data collection methods remains the factor that has the greatest percentage of respondents indicating extremely important which could mean that all respondents, students, researchers and support professional regard data collection methods to be the most important factor when deciding whether to trust data. Across all respondents, personal relationships with the data creator is indicated as not important in establishing trust in data. 
+
+### Importance of establishing quality of data (Q15/L17)
+
+We investigate below the differences in how students, researchers and support professional establish the quality of data.
+```{r, include=FALSE} 
+# Q15/L17
+
+#eval_qualopen
+
+# students 
+qual_dict <- c("eval_qualerr"= "Lack of errors", "eval_qualeda" = " Ease of downloading and exploring", "eval_qualsize" = "Data size", "eval_qualcomplt" = "Data completeness", "eval_qualsource" = "Reputation data source", "eval_qualresltn" = "Resolution or clarity", "eval_qualrepcreatr" = "Reputation data creator", "eval_qualprep" = "Work done to prepare data", "eval_qualcnsistnt" = "Consistency of formatting")
+
+qual_data_st <- students %>% 
+  dplyr::select("responseid", "dem_exprnce", "eval_qualerr", "eval_qualeda", "eval_qualsize", "eval_qualcomplt", "eval_qualsource", "eval_qualresltn", "eval_qualrepcreatr", "eval_qualprep", "eval_qualcnsistnt") %>% 
+  pivot_longer(cols = c("eval_qualerr", "eval_qualeda", "eval_qualsize", "eval_qualcomplt", "eval_qualsource", "eval_qualresltn", "eval_qualrepcreatr", "eval_qualprep", "eval_qualcnsistnt"), names_to = "quality", values_to = "values")
+
+qual_data_st$qual_name <- qual_dict[qual_data_st$quality]
+
+# researcher ppl 
+qual_data_re <- research_ppl %>% 
+  dplyr::select("responseid", "dem_exprnce", "eval_qualerr", "eval_qualeda", "eval_qualsize", "eval_qualcomplt", "eval_qualsource", "eval_qualresltn", "eval_qualrepcreatr", "eval_qualprep", "eval_qualcnsistnt") %>% 
+    pivot_longer(cols = c("eval_qualerr", "eval_qualeda", "eval_qualsize", "eval_qualcomplt", "eval_qualsource", "eval_qualresltn", "eval_qualrepcreatr", "eval_qualprep", "eval_qualcnsistnt"), names_to = "quality", values_to = "values")
+  
+qual_data_re$qual_name <- qual_dict[qual_data_re$quality]
+                                      
+# support 
+qual_data_sppt <- support %>% 
+  dplyr::select("responseid", "dem_exprnce", "eval_qualerr", "eval_qualeda", "eval_qualsize", "eval_qualcomplt", "eval_qualsource", "eval_qualresltn", "eval_qualrepcreatr", "eval_qualprep", "eval_qualcnsistnt") %>% 
+  pivot_longer(cols = c("eval_qualerr", "eval_qualeda", "eval_qualsize", "eval_qualcomplt", "eval_qualsource", "eval_qualresltn", "eval_qualrepcreatr", "eval_qualprep", "eval_qualcnsistnt"), names_to = "quality", values_to = "values")
+
+qual_data_sppt$qual_name <- qual_dict[qual_data_sppt$quality]
+```
+
+
+#### Importance of factors helping establish quality in data for students 
+```{r, echo=FALSE, fig.cap="Factors such as lack of errors in data, data preparation, clarity, completness, and reputation of data source are all important in establishing quality of data for students", fig.width = 12,fig.height = 8} 
+ggplot(data=qual_data_st, aes(x = values)) +
+  labs(y= "Percentage", title = "Factors to establish quality in data") +
+  geom_bar(aes(y = ..prop.., group = quality, fill = factor(..x..)), stat="count", position = "dodge") +
+  facet_wrap(~ qual_name) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x = element_blank())+
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette="Set3", name = "Importance", labels = c("Extremely important", "Important", "Less important", "Not important", "Somewhat important"))
+```
+
+Similar to how students establish trust in data, it appears that factors regarding the data itself, the lack of error, data resolution or clarity, data completeness and reputation of the source, plays an important part for students. The lack of errors in data is extremely important for nearly 50% of students and important for nearly 40% of students. The reputation of the data creator and data size are less significant for students, over 20% indicated less important and over 10% indicated not important for both factors respectively. 
+
+#### Importance of factors helping establish quality in data for researchers
+```{r, echo=FALSE, fig.cap="Lack of errors remain, data preparation, clarity and completeness all remain important in establishing quality of data for researchers.", fig.width = 12,fig.height = 8}
+ggplot(data=qual_data_re, aes(x = values)) +
+  labs(y= "Percentage", title = "Factors to establish quality in data") +
+  geom_bar(aes(y = ..prop.., group = quality, fill = factor(..x..)), stat="count", position = "dodge") +
+  facet_wrap(~ qual_name) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x = element_blank())+
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette="Set3", name = "Importance", labels = c("Extremely important", "Important", "Less important", "Not important", "Somewhat important"))
+```
+
+It appears that many factors such as lack of errors and data that were important to students are important for researchers when establishing the quality of data. It is interesting that researchers appear to value more the reputation of the data creator and reputation of data source than students (Over 45% of researchers indicated extremely important or important compared to around 35% of students for reputation of data creator. Around 70% of researchers indicated extremely important or important compared to around 60% of students for reputation of data source). The importance of data preparation appears to decease in researchers compared to students (around 16% and 42% of researchers indicating extremely important and important respectively compared to around 16% and 50% for students indicating the same level of importance). This could indicate  that students place greater value on how "clean" or "prepared" data is when establishing data quality while researchers value reputation of the data origin. This could potentially indicate that students are more willing to use data that are created or collected by less reputable sources. 
+
+#### Importance of factors helping establish quality in data for support professionals
+```{r,echo=FALSE, fig.cap="Support professionals share some similarities with students and researchers but values less in data size and ease of downloading and exploring when establishing quality in data.", fig.width = 12,fig.height = 8} 
+ggplot(data=qual_data_sppt, aes(x = values)) +
+  labs(y= "Percentage", title = "Factors to establish quality in data") +
+  geom_bar(aes(y = ..prop.., group = quality, fill = factor(..x..)), stat="count", position = "dodge") +
+  facet_wrap(~ qual_name) +
+  theme(axis.ticks.x=element_blank(),
+        axis.text.x = element_blank())+
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette="Set3", name = "Importance", labels = c("Extremely important", "Important", "Less important", "Not important", "Somewhat important"))
+```
+
+Support professionals, like students and researchers, value factors such as lack of errors, data clarity, consistency and completeness when establishing data quality. However, it appears that support professionals are not as certain in any specific factor being exceedingly important like students and researchers were about the importance of lack of errors. Data size appears to be less valuable for support professional when establishing quality of data with over 50% indicating that factor is less important or not important. Overall, support professionals appears to be decided in consistency in formatting, data completeness, lack of errors, and resolution or clarity of the data as important factors in establishing data quality, and less certain about other factors seem by the greater percentages indicating somewhat important than students or researchers. 
+
+```{r comparison1}
+#sharself
+support %>%
+  dplyr::select(dem_exprnce | dem_reuseself | dem_sharself) %>%
+  pivot_longer(starts_with(c("dem_shar","dem_re"))) %>%
+  ggplot(aes(x = dem_exprnce, fill = value, stat = "prop")) +
+  scale_fill_manual(values = c("#00AFBB", "#E7B800", "#FC4E07","#00AFBB", "#E7B800","#FC4E07", "#00AF07"))+
+  facet_grid(~ name) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  xlab("Years of experience (Support)") + ylab("Percent")
+
+#shargroup
+support %>%
+  dplyr::select(dem_exprnce | dem_reusegrp | dem_shargrp) %>%
+  pivot_longer(starts_with(c("dem_shar","dem_re"))) %>%
+  ggplot(aes(x = dem_exprnce, fill = value, stat = "prop")) +
+  scale_fill_manual(values = c("#00AFBB", "#A2D000", "#E7B800","#FC4E07", "#00AFBB","#A2D000", "#E7B800","#FC4E07", "#00AF07"))+
+  facet_grid(~ name) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  xlab("Years of experience (Support)") + ylab("Percent")
+
+#disc
+support %>%
+  dplyr::select(dem_exprnce | dem_reusedisc | dem_shardisc) %>%
+  pivot_longer(starts_with(c("dem_shar","dem_re"))) %>%
+  ggplot(aes(x = dem_exprnce, fill = value, stat = "prop")) +
+  scale_fill_manual(values = c("#00AFBB", "#E7B800","#FC4E07", "#00AFBB","#A2D000", "#E7B800","#FC4E07", "#00AF07"))+
+  facet_grid(~ name) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  xlab("Years of experience (Support)") + ylab("Percent")
+#sharorg
+support %>%
+  dplyr::select(dem_exprnce | dem_reuseorg | dem_sharorg) %>%
+  pivot_longer(starts_with(c("dem_shar","dem_re"))) %>%
+  ggplot(aes(x = dem_exprnce, fill = value, stat = "prop")) +
+  scale_fill_manual(values = c("#00AFBB", "#E7B800","#FC4E07", "#00AFBB","#A2D000", "#E7B800","#FC4E07", "#00AF07"))+
+  facet_grid(~ name) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  xlab("Years of experience (Support)") + ylab("Percent")
+
+```
+```{r}
+#("We observe that there is more obvious and significant trends across the different sharing variables as opposed to the different datasets. The pie charts of both research and support data set have similar response ratios. The differences are seen across the sharing variables. On the smallest scale, sharself, has the largest portion of people who strongly encourage the sharing of data. This answer sees a decrease from self to group, then disciplinary communities, and lastly organizations.")#
+#sharself
+table((research$dem_sharself))
+prop.table(table((research$dem_sharself)))
+
+old.par <- par(mfrow=c(2, 1))
+par(mar = c(2,2,2,2))
+slices <- c(151, 27,440, 972, 30, 10)
+lbls <- c("Neither encouraged nor discouraged", "Don't know/Not applicable", "Somewhat encouraged", "Strongly encouraged", "Somewhat discouraged", "Strongly discouraged")
+pie(slices, labels = lbls, main="Pie Chart of ShareSelf (Research)")
+
+slices <- c(2, 2,9, 34)
+lbls <- c("Neither encouraged nor discouraged", "Don't know/Not applicable", "Somewhat encouraged", "Strongly encouraged")
+pie(slices, labels = lbls, main="Pie Chart of ShareSelf (Support)")
+
+#shargrp
+table((research$dem_shargrp))
+prop.table(table((research$dem_shargrp)))
+
+slices <- c(289, 52,105, 538,105, 34)
+lbls <- c("Neither encouraged nor discouraged", "Don't know/Not applicable", "Somewhat encouraged", "Strongly encouraged", "Somewhat discouraged", "Strongly discouraged")
+pie(slices, labels = lbls, main="Pie Chart of ShareGroup (Research)")
+
+slices <- c(6, 2,17, 21,1)
+lbls <- c("Neither encouraged nor discouraged", "Don't know/Not applicable", "Somewhat encouraged", "Strongly encouraged", "Somewhat discouraged")
+pie(slices, labels = lbls, main="Pie Chart of ShareGroup (Support)")
+
+#shardisc
+table((research$dem_shardisc))
+prop.table(table((research$dem_shardisc)))
+
+slices <- c(361, 64,618, 434, 121,32)
+lbls <- c("Neither encouraged nor discouraged", "Don't know/Not applicable", "Somewhat encouraged", "Strongly encouraged", "Somewhat discouraged", "Strongly discouraged")
+pie(slices, labels = lbls, main="Pie Chart of ShareDisc (Research)")
+
+slices <- c(15, 2,15, 14,1)
+lbls <- c("Neither encouraged nor discouraged", "Don't know/Not applicable", "Somewhat encouraged", "Strongly encouraged", "Somewhat discouraged")
+pie(slices, labels = lbls, main="Pie Chart of ShareDisc (Support)")
+
+
+#sharorg
+table((research$dem_sharorg))
+prop.table(table((research$dem_sharorg)))
+
+slices <- c(404, 112,546, 430, 104, 34)
+lbls <- c("Neither encouraged nor discouraged", "Don't know/Not applicable", "Somewhat encouraged", "Strongly encouraged", "Somewhat discouraged", "Strongly discouraged")
+pie(slices, labels = lbls, main="Pie Chart of ShareOrg (Research)")
+
+slices <- c(16, 2,18, 9,2)
+lbls <- c("Neither encouraged nor discouraged", "Don't know/Not applicable", "Somewhat encouraged", "Strongly encouraged", "Somewhat discouraged")
+pie(slices, labels = lbls, main="Pie Chart of ShareOrg (Support)")
+```
+
+### Data find open response (Q10a/L12a)
+
+The following looks into open response questions Q10a and L12a, asking respondents to discuss how their process for finding data is different than the process for finding academic literature. 
+
+#### Support dataset
+```{r open find - SUPPORT}
+
+#Frequency table (most frequent words)
+##remove all stop words
+
+library(stopwords)
+library(tidytext)
+library(SnowballC)
+library(hunspell)
+
+##All responses
+
+open_lit <- research%>%
+  unnest_tokens(word, find_litdatopen)
+
+new_lit <- open_lit %>%
+  anti_join(stop_words, by = c("word" = "word")) 
+  
+#STEMMING
+lit_all <- new_lit %>%
+  mutate(stem = wordStem(word)) %>%
+  dplyr::count(stem, sort = TRUE)
+
+#sort(table(unlist(strsplit(lit_all$stem, " "))), decreasing = TRUE)
+
+##Graph
+
+supp_lit_all <- na.omit(lit_all)
+
+top_n(supp_lit_all, n=10, n) %>%
+          ggplot(.,aes(x=stem, y=n))+
+  labs(y= "count", x = "words", title = "10 most frequent words in open response question L12a") +
+              geom_bar(stat='identity', fill= "#238A8DFF")
+
+
+##Wordcloud
+
+library(wordcloud2)
+#wordcloud2(data=supp_lit_all, size=1.6, color='random-dark')
+
+###remove 'data'
+
+#remove_lit_supp <- supp_lit_all[-1, ]
+
+#wordcloud2(data=remove_lit_supp, size=1.0, shape = 'circle')
+
+
+```
+
+**Conclusion:**
+
+
+The responses to the question asking how the process for finding data is different than the process for finding academic literature included many words that showed up more than others (outside of data and literature which were part of the question). This included words like search, repositories, resources, and specific. Unlike finding literature, the results may suggest that many respondents may visit different repositories and are required to employ different search processes when finding data. The results did not appear to have any obvious patterns or differences between all the responses versus only from the respondents who answered yes. 
+
+
+#### Researchers dataset
+
+```{r open find - RESEARCH}
+
+#Q10a (find_litdatopn)
+#How is your process for finding data different than your process for finding academic literature?
+
+r_lit <- research %>%
+  dplyr::select(c("find_litdatopen"))
+
+open_r_lit <- r_lit%>%
+  unnest_tokens(word, find_litdatopen)
+
+new_r_lit <- open_r_lit %>%
+  anti_join(stop_words, by = c("word" = "word")) 
+
+#STEMMING
+lit_rea <- new_r_lit %>%
+  mutate(stem = wordStem(word)) %>%
+  dplyr::count(stem, sort = TRUE)
+  
+
+#sort(table(unlist(strsplit(new_r_lit$word, " "))), decreasing = TRUE)
+
+##Graph
+
+lit_rea_all <- na.omit(lit_rea) #delete NA column
+
+top_n(lit_rea_all, n=10, n) %>%
+          ggplot(.,aes(x=stem, y=n))+
+  labs(y= "count", x = "words", title = "10 most frequent words in open response question Q10a") +
+              geom_bar(stat='identity', fill= "#238A8DFF")
+
+##Wordcloud
+
+#wordcloud2(data=lit_rea_all, size=1.6, color='random-dark')
+
+###remove 'data'
+
+#remove_lit_rea <- lit_rea_all[-1, ]
+
+#wordcloud2(data=remove_lit_rea, size=1.0, shape = 'circle')
+
+```
+
+**Conclusion:**
+
+Similar to the support dataset, common words that were present in this open response question include ones such as search, specific, and sources. This may suggest that one of the reasons why researchers engage in a different process in finding data is because data requires specific sources (contacting data creator, specialized databases, etc) that are found through ways different from finding academic literature. For example, one respondent suggests that "finding literature is by google search, finding data has many more ways."
+
+# Conclusion
+
+From the support dataset, we learn that research support professionals were generally in the middle stages of their career, with a vast majority specializing in the natural and applied sciences and employed in either Europe or North America. The majority of researchers and research support professionals need observational or empirical data, and they use or need secondary data for either a new study or for teaching or training. Finding data primarily happens by actively searching online and through sources such as conversations with personal networks and mailing lists. Moreover, by
+analyzing the open response questions, we see that reliability, cost, date of data, and relevance influence researchers’ decision on whether or not to use secondary data.
+
+
+From the researcher dataset, we found that an important factor in determining data share and (re)use behavior is the experience level of the respondents. Respondents with more experience indicated they find data themselves less than respondents with less years of experience. Additionally, challenges to finding data pertaining to having the necessary resources and connections also decrease as the years of experience increases. The challenge of data being in many different places increases with experience level, perhaps indicating with more access to available data, respondents with more experience realize it becomes more difficult to find specific or targeted data. This could point to a broader issue with the organization of data beyond just the accessibility of data. 
+
+Students indicated finding data was more challenging than respondents who indicated themselves to be researchers. Additionally, more students indicated lack of personal networks and data is inaccessible to be challenges compared to researcher
+
+# Limitations and future work
+
+When it comes to the limitations of our analyses and the dataset, there are a couple that should be noted. First of all, the support dataset was relatively small, with only 47 respondents. This means that the limited number of responses to certain questions and analyses of various demographic variables must be taken into account. In addition, because of a low response rate to the survey, the potential for nonresponse bias must be considered as responses may not be representation of the larger target population. As mentioned before, the dataset also works with categorical data, limiting our ability to carry out further analyses or inferences. 
+
+This limitation aligns with the potential next steps, as we would love other survey questions that could gather quantitative responses from the researchers and support professionals. Additionally, a suggested future area of research could pertain to the organization of data in more specific sources and areas. From the analysis on data find challenges, we found that respondents with more experience had less difficulty accessing data compared to respondents with less experience but had a greater proportion indicating data to be in many different places compared to less experienced groups.
+Another suggested area of future work is in the challenges of finding data among students. From our analysis in ease of finding data among students and researchers, we discovered students overall indicated finding data is difficult with one of their challenges being data is not accessible. The question of if data is not accessible because students lack the necessary experience to simply obtain the data they desire or if they are not aware of data sources and data find resources available to help them find data could be explored further.
+
