@@ -1,0 +1,168 @@
+VARIABLE_NAME;VARIABLE_LABEL
+responseid;Response ID
+use_whorsrch;L3: Need secondary  data for own research or to support others
+use_whorsrch_oth;L3: Open reponse to other for need secondary data for own research or to support others
+whosupprt_stud;L4: Who support: students
+whosupprt_res;L4: Who support: researchers
+whosupprt_indus;L4: Who support: industry employees
+whosupprt_oth;L4: Who support: other 
+whosupprt_othresp;L4: Who support: open response for other 
+supprt_teachdmp;L5: How provide support: teach about data management planning
+supprt_teachsklls;L5: How provide support: teach skills to discover and evaluate data 
+supprt_finddta;L5: How provide support: find data for others 
+supprt_curate;L5: How provide support: help to curate data 
+supprt_findlit;L5: How provide support: find literature for others 
+supprt_oth;L5: How provide support: other 
+supprt_othresp;L5: How provide support: open response for other
+need_open;L6: Open description of needed data
+need_obs;L7: Need observational or empirical data
+need_exp;L7: Need experimental data
+need_sim;L7: Need simulation data
+need_deriv;L7: Need derived or compiled data
+need_oth;L7: Need other data
+need_othresp;L8: Open response for need other data
+use_nwstdy;L8: Use data as the basis for a new study
+use_calb;L8: Use data to calibrate instruments or models
+use_bnchmrk;L8: Use data for benchmarking
+use_vrfctn;L8: Use data to verify own data
+use_inpt;L8: Use data as model, algorithm or system inputs
+use_idea;L8: Use data to generate new ideas
+use_tch;L8: Use data for teaching/training
+use_nwprj;L8: Use data to prepare for new project or proposal
+use_nwmth;L8: Use data to experiment with new methods and techniques
+use_trnds;L8: Use data to identify trends, make predictions
+use_cmprsn;L8: Use data to compare multiple datasets
+use_smvs;L8: Use data to create summaries, visualizations, analysis tools
+use_intgrtn;L8: Use data to integrate with other data
+use_oth;L8: Use data for other uses
+use_othresp;L8: Open response for other uses
+source_multrepos;L9: Source to find data: multidisciplinary data repository
+source_discrepos;L9: Source to find data: discipline-specific data repository
+source_gov;L9: Source to find data: governmental agencies and websites
+source_netwk;L9: Source to find data: personal networks
+source_lit;L9: Source to find data: academic literature
+source_coderep;L9: Source to find data: code repository
+source_srcheng;L9: Source to find data: general search engines e.g. Google
+source_profassc;L9: Source to find data: professional associations
+source_datsrcheng;L9: Source to find data: data specific search engines
+source_commrc;L9: Source to find data: commercial sources
+source_open;L9: Source to find data: open response for other sources
+strategy_goal;L9a: Strategy for using literature: with goal of finding data
+strategy_serend;L9a: Strategy for using literature: serendipitously while reading or literature searching
+strategy_cit;L9a: Strategy for using literature: by following citations in the literature
+strategy_extrct;L9a: Strategy for using literature: extract data from tables or graphs
+strategy_oth;L9a: Strategy for using literature: other
+strategy_othresp;L9a: Strategy for using literature: open response for other
+succs_srcheng;L9b: Success using general search engine e.g. Google
+find_actonln;L10: Frequency finding data by actively searching online
+find_serendsrch;L10: Frequency finding data serendipitously when searching for something else
+find_serendpas;L10: Frequency finding data serendipitously when NOT searching
+find_share;L10: Frequency finding data while sharing or managing own data
+find_netwk;L11: Find data via conversations with personal networks
+find_creatr;L11: Find data via contacting data creator
+find_collab;L11: Find data via developing collaborations  
+find_conf;L11: Find data via attending conferences
+find_list;L11: Find data via disciplinary mailing lists or forums
+accss_netwk;L11: Access data via conversations with personal networks
+accss_creatr;L11: Access data via contacting data creator
+accss_collab;L11: Access data via developing collaborations  
+accss_conf;L11: Access data via attending conferences
+accss_list;L11: Access data via disciplinary mailing lists or forums
+eval_netwk;L11: Make sense of data via conversations with personal networks
+eval_creatr;L11: Make sense of data via contacting data creator
+eval_collab;L11: Make sense of data via developing collaborations  
+eval_conf;L11: Make sense of data via attending conferences
+eval_list;L11: Make sense of data via disciplinary mailing lists or forums
+na_netwk;L11: Don't know: conversations with personal networks
+na_creatr;L11: Don't know: contacting data creator
+na_collab;L11: Don't know developing collaborations  
+na_conf;L11: Don't know attending conferences
+na_list;L11: Don't know disciplinary mailing lists or forums
+findaccseval_oth;L11a: Open explanation of L11
+find_litdat;L12: Find data differently than find academic literature
+find_litdatopen;L12a: Open response: how is finding data different than finding literature
+eval_infmeth;L13: Importance of information to evaluate data: collection conditions and methodology
+eval_infprov;L13: Importance of information to evaluate data: processing and handling
+eval_infrepcreatr;L13: Importance of information to evaluate data: reputation data creator
+eval_infrelcreatr;L13: Importance of information to evaluate data: personally knowing data creator
+eval_infrepsource;L13: Importance of information to evaluate data: reputation data source
+eval_infmeta;L13: Importance of information to evaluate data: detailed metadata and documentation
+eval_infsize;L13: Importance of information to evaluate data: size
+eval_inffrmt;L13: Importance of information to evaluate data: format
+eval_inflic;L13: Importance of information to evaluate data: licensing conditions
+eval_infcovg;L13: Importance of information to evaluate data: correct coverage
+eval_infpurps;L13: Importance of information to evaluate data: original purpose
+eval_infaccs;L13: Importance of information to evaluate data: ease of access
+eval_inftopic;L13: Importance of information to evaluate data: topic relevance
+eval_infopen;L13_open: Importance of information to evaluate data: Open response for other 
+eval_spprtd;L14: Same eval criteria for people you support
+eval_spprtdopen;L14a: Open response to eval criteria for people you support
+eval_stratart;L15: Importance of strategies for evaluation and sensemaking: consult associated articles
+eval_stratdoc;L15: Importance of strategies for evaluation and sensemaking: consult data documentation
+eval_stratcreatr;L15: Importance of strategies for evaluation and sensemaking: consult data creator
+eval_stratnetwk;L15: Importance of strategies for evaluation and sensemaking: consult personal networks
+eval_strateda;L15: Importance of strategies for evaluation and sensemaking: exploratory data analysis
+eval_stratopen;L15_open: Importance of strategies for evaluation and sensemaking: open response for other
+eval_trstuse;L16: Importance in establishing trust: prior usage
+eval_trstsource;L16: Importance in establishing trust: reputation data source
+eval_trstrepcreatr;L16: Importance in establishing trust: reputation data creator
+eval_trstmeth;L16: Importance in establishing trust: transparency in methods
+eval_trsterr;L16: Importance in establishing trust: lack of errors
+eval_trstaccs;L16: Importance in establishing trust: ease of access
+eval_trstrelcrtr;L16: Importance in establishing trust: personal relationship with data creator
+eval_trstopen;L16_open: Importance in establishing trust: open response for other
+eval_qualerr;L17: Importance in establishing quality: lack of errors
+eval_qualeda;L17: Importance in establishing quality: ease of downloading and exploring
+eval_qualsize;L17: Importance in establishing quality: data size
+eval_qualcomplt;L17: Importance in establishing quality: data completeness
+eval_qualsource;L17: Importance in establishing quality: reputation data source
+eval_qualresltn;L17: Importance in establishing quality: resolution or clarity
+eval_qualrepcreatr;L17: Importance in establishing quality: reputation data creator
+eval_qualprep;L17: Importance in establishing quality: work done to prepare data
+eval_qualcnsistnt;L17: Importance in establishing quality: consistency of formatting
+eval_qualopen;L17_open: Importance in establishing quality: open response for other
+disc_agricul;D1: Discipline of specialization: agriculture
+disc_artshuman;D1: Discipline of specialization: arts and humanities
+disc_astronom;D1: Discipline of specialization: astronomy
+disc_biochem;D1: Discipline of specialization: biochemistry, genetics and molecular biology
+disc_biological;D1: Discipline of specialization: biological sciences
+disc_busin;D1: Discipline of specialization: business, management and accounting 
+disc_chemeng;D1: Discipline of specialization: chemical engineering 
+disc_chem;D1: Discipline of specialization: chemistry
+disc_compsci;D1: Discipline of specialization: computer sciences or IT
+disc_decisionsci;D1: Discipline of specialization: decision sciences
+disc_dentist;D1: Discipline of specialization: dentistry
+disc_earthplanet;D1: Discipline of specialization: earth and planetary sciences
+disc_econ;D1: Discipline of specialization: economics, econometrics and finance 
+disc_energy;D1: Discipline of specialization: energy
+disc_engtech;D1: Discipline of specialization: engineering and technology
+disc_environ;D1: Discipline of specialization: environmental sciences
+disc_healthprof;D1: Discipline of specialization: health professions
+disc_immun;D1: Discipline of specialization: immunology and microbiology 
+disc_matlsci;D1: Discipline of specialization: materials science
+disc_math;D1: Discipline of specialization: mathematics
+disc_med;D1: Discipline of specialization: medicine
+disc_multi;D1: Discipline of specialization: multidisciplinary
+disc_neuro;D1: Discipline of specialization: neuroscience
+disc_nurs;D1: Discipline of specialization: nursing
+disc_pharma;D1: Discipline of specialization: pharmacology, toxicology and pharmaceutics 
+disc_physics;D1: Discipline of specialization: physics
+disc_psych;D1: Discipline of specialization: psychology
+disc_socsci;D1: Discipline of specialization: social science
+disc_vet;D1: Discipline of specialization: veterinary
+disc_infosci;D1: Discipline of specialization: information science
+disc_other;D1: Discipline of specialization: other
+disc_othresp;D1: Discipline of specialization: response for other
+dem_role;Q1: Role
+dem_exprnce;D2: Years of professional experience
+dem_country;D3: Country of employment 
+dem_org;D4: Type of organization where employed
+dem_orgoth;D4_other: Open response for other type of organization
+dem_sharself;D5: Personal feelings about data sharing
+dem_shargrp;D5: Perception of work group's feelings about data sharing
+dem_shardisc;D5: Perception of  disciplinary community's feelings about data sharing
+dem_sharorg;D5: Perception of organization's feelings about data sharing
+dem_reuseself;D6: Personal feelings about data reuse
+dem_reusegrp;D6: Perception of work group's feelings about data reuse
+dem_reusedisc;D6: Perception of disciplinary community's feelings about data reuse
+dem_reuseorg;D6: Perception of organization's feelings about data reuse
